@@ -23,4 +23,10 @@
 
 ```shell
   python manager.py runserver
+  uv run python manage.py runserver
+```
+
+```账号和密码
+    admin
+    admin111
 ```
