@@ -28,7 +28,8 @@ from .views import (
     RecipeFavoriteView,
     UserFavoriteListView,
     RecipeSearchView,
-    RecipeRecommendView
+    RecipeRecommendView,
+    MyRecipesView
 )
 
 # 应用命名空间
@@ -69,4 +70,8 @@ urlpatterns = [
 
     # GET /api/recipe/recommend/
     path('recommend/', RecipeRecommendView.as_view(), name='recommend'),
+
+    # 我的食谱
+    # GET /api/recipe/my-recipes/
+    path('my-recipes/', MyRecipesView.as_view(), name='my-recipes'),
 ]

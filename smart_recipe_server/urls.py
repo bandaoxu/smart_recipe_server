@@ -14,9 +14,57 @@ API 路由：
 
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+import os
+import uuid
+
+@api_view(['GET'])
+def api_root(request):
+    return Response({
+        "code": 200,
+        "message": "智能食谱 API 服务运行中",
+        "data": {
+            "user": "/api/user/",
+            "ingredient": "/api/ingredient/",
+            "recipe": "/api/recipe/",
+            "shopping_list": "/api/shopping-list/",
+            "community": "/api/community/",
+            "token_refresh": "/api/token/refresh/",
+        }
+    })
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser])
+@permission_classes([IsAuthenticated])
+def upload_file(request):
+    """文件上传视图"""
+    file = request.FILES.get('file')
+    if not file:
+        return Response({"code": 400, "message": "未提供文件", "data": None}, status=400)
+
+    ext = os.path.splitext(file.name)[1].lower()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filepath = os.path.join(upload_dir, filename)
+    with open(filepath, 'wb+') as f:
+        for chunk in file.chunks():
+            f.write(chunk)
+
+    url = request.build_absolute_uri(f"{settings.MEDIA_URL}uploads/{filename}")
+    return Response({"code": 200, "message": "上传成功", "data": {"url": url}})
 
 urlpatterns = [
+    # API 根路径
+    path('api/', api_root, name='api-root'),
+
     # Django Admin 后台管理
     path('admin/', admin.site.urls),
 
@@ -42,4 +90,7 @@ urlpatterns = [
     # 社区模块
     # 包含：美食动态、评论等
     path('api/community/', include('apps.community.urls')),
-]
+
+    # 文件上传
+    path('api/upload/', upload_file, name='upload'),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

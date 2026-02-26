@@ -14,6 +14,7 @@
 """
 
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     UserRegisterView,
     UserLoginView,
@@ -47,4 +48,7 @@ urlpatterns = [
     # 修改密码
     # POST /api/user/change-password
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+
+    # Token 刷新（别名，前端兼容）
+    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]

@@ -33,15 +33,13 @@ from .serializers import (
 
 class RecipeListView(APIView):
     """
-    食谱列表视图
-
-    获取食谱列表，支持分页、分类过滤、排序。
-
-    请求方法：GET
-    权限：所有人可访问
+    食谱列表视图，GET 获取列表，POST 创建食谱（前端兼容）。
     """
 
-    permission_classes = [AllowAny]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get(self, request):
         """获取食谱列表"""
@@ -86,6 +84,15 @@ class RecipeListView(APIView):
 
         serializer = RecipeListSerializer(queryset, many=True)
         return success_response(data=serializer.data, message='获取食谱列表成功')
+
+    def post(self, request):
+        """创建食谱（兼容 POST /api/recipe/）"""
+        serializer = RecipeCreateSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            recipe = serializer.save()
+            detail_serializer = RecipeDetailSerializer(recipe)
+            return success_response(data=detail_serializer.data, message='创建食谱成功')
+        return error_response(message='创建失败', data=serializer.errors, code=400)
 
 
 class RecipeDetailView(APIView):
@@ -431,3 +438,24 @@ class RecipeRecommendView(APIView):
 
         serializer = RecipeListSerializer(queryset, many=True)
         return success_response(data=serializer.data, message='获取推荐食谱成功')
+
+
+class MyRecipesView(APIView):
+    """我的食谱视图"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """获取当前用户创建的食谱"""
+        queryset = Recipe.objects.filter(author=request.user).order_by('-created_at')
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request)
+
+        if page is not None:
+            serializer = RecipeListSerializer(page, many=True)
+            result = paginator.get_paginated_response(serializer.data)
+            return success_response(data=result.data, message='获取我的食谱成功')
+
+        serializer = RecipeListSerializer(queryset, many=True)
+        return success_response(data=serializer.data, message='获取我的食谱成功')

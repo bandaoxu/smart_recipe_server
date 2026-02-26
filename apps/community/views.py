@@ -109,3 +109,37 @@ class CommentCreateView(APIView):
             return success_response(data=serializer.data, message='评论成功')
         else:
             return error_response(message='评论失败', data=serializer.errors, code=400)
+
+
+class FoodPostsView(APIView):
+    """美食动态 posts 视图（GET 列表 + POST 发布，前端兼容）"""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    def get(self, request):
+        """获取动态列表"""
+        queryset = FoodPost.objects.all()
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request)
+
+        if page is not None:
+            serializer = FoodPostSerializer(page, many=True)
+            result = paginator.get_paginated_response(serializer.data)
+            return success_response(data=result.data, message='获取动态列表成功')
+
+        serializer = FoodPostSerializer(queryset, many=True)
+        return success_response(data=serializer.data, message='获取动态列表成功')
+
+    def post(self, request):
+        """发布动态"""
+        serializer = FoodPostSerializer(data=request.data, context={'request': request})
+
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(data=serializer.data, message='发布成功')
+        else:
+            return error_response(message='发布失败', data=serializer.errors, code=400)
