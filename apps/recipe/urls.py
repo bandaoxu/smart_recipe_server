@@ -27,6 +27,7 @@ from .views import (
     RecipeLikeView,
     RecipeFavoriteView,
     UserFavoriteListView,
+    UserLikedListView,
     RecipeSearchView,
     RecipeRecommendView,
     MyRecipesView
@@ -74,4 +75,8 @@ urlpatterns = [
     # 我的食谱
     # GET /api/recipe/my-recipes/
     path('my-recipes/', MyRecipesView.as_view(), name='my-recipes'),
+
+    # 我的喜欢
+    # GET /api/recipe/liked/
+    path('liked/', UserLikedListView.as_view(), name='liked'),
 ]

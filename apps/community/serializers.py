@@ -3,7 +3,7 @@
 """
 
 from rest_framework import serializers
-from .models import FoodPost, Comment
+from .models import FoodPost, Comment, PostLike
 from apps.recipe.serializers import RecipeListSerializer
 
 
@@ -13,12 +13,13 @@ class FoodPostSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     recipe = RecipeListSerializer(read_only=True)
     recipe_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodPost
         fields = [
             'id', 'user', 'recipe', 'recipe_id', 'content', 'images',
-            'likes', 'comments_count', 'created_at'
+            'likes', 'comments_count', 'is_liked', 'created_at'
         ]
         read_only_fields = ['id', 'user', 'likes', 'comments_count', 'created_at']
 
@@ -28,6 +29,12 @@ class FoodPostSerializer(serializers.ModelSerializer):
             'username': obj.user.username,
             'nickname': getattr(obj.user.userprofile, 'nickname', obj.user.username)
         }
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return PostLike.objects.filter(user=request.user, post=obj).exists()
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user

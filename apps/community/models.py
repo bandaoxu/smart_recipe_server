@@ -87,6 +87,27 @@ class FoodPost(models.Model):
         return f'{self.user.username} - {self.content[:30]}'
 
 
+class PostLike(models.Model):
+    """动态点赞模型，支持 toggle（点赞/取消点赞）"""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='post_likes', verbose_name='用户'
+    )
+    post = models.ForeignKey(
+        FoodPost, on_delete=models.CASCADE, related_name='post_likes', verbose_name='动态'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        db_table = 'post_like'
+        verbose_name = '动态点赞'
+        verbose_name_plural = '动态点赞'
+        unique_together = ('user', 'post')
+
+    def __str__(self):
+        return f'{self.user.username} 点赞 {self.post.id}'
+
+
 class Comment(models.Model):
     """
     评论模型

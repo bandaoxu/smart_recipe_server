@@ -125,7 +125,7 @@ class RecipeDetailView(APIView):
                 behavior_type='view'
             )
 
-        serializer = RecipeDetailSerializer(recipe)
+        serializer = RecipeDetailSerializer(recipe, context={'request': request})
         return success_response(data=serializer.data, message='获取食谱详情成功')
 
 
@@ -364,6 +364,35 @@ class UserFavoriteListView(APIView):
 
         serializer = RecipeListSerializer(queryset, many=True)
         return success_response(data=serializer.data, message='获取收藏列表成功')
+
+
+class UserLikedListView(APIView):
+    """我的喜欢列表视图"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """获取用户点赞的食谱列表"""
+        liked_recipe_ids = UserBehavior.objects.filter(
+            user=request.user,
+            behavior_type='like'
+        ).values_list('recipe_id', flat=True)
+
+        queryset = Recipe.objects.filter(
+            id__in=liked_recipe_ids,
+            is_published=True
+        )
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request)
+
+        if page is not None:
+            serializer = RecipeListSerializer(page, many=True)
+            result = paginator.get_paginated_response(serializer.data)
+            return success_response(data=result.data, message='获取喜欢列表成功')
+
+        serializer = RecipeListSerializer(queryset, many=True)
+        return success_response(data=serializer.data, message='获取喜欢列表成功')
 
 
 class RecipeSearchView(APIView):

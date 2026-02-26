@@ -15,8 +15,16 @@
 
 from rest_framework import serializers
 from .models import Recipe, RecipeIngredient, CookingStep, UserBehavior
+from apps.ingredient.models import Ingredient
 from apps.ingredient.serializers import IngredientListSerializer
 
+
+class RecipeIngredientCreateSerializer(serializers.Serializer):
+    """前端食材格式：{name, quantity, unit}"""
+    name = serializers.CharField()
+    quantity = serializers.CharField()
+    unit = serializers.CharField()
+    is_main = serializers.BooleanField(default=False, required=False)
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
     """
@@ -104,6 +112,10 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
     ingredients = RecipeIngredientSerializer(source='recipe_ingredients', many=True, read_only=True)
     steps = CookingStepSerializer(many=True, read_only=True)
 
+    # 当前用户是否已点赞/收藏
+    is_liked = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
+
     class Meta:
         model = Recipe
         fields = [
@@ -111,7 +123,7 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             'cooking_time', 'servings', 'category', 'category_display',
             'cuisine_type', 'cuisine_type_display', 'tags', 'total_calories',
             'description', 'views', 'likes', 'favorites', 'is_published',
-            'ingredients', 'steps', 'created_at', 'updated_at'
+            'ingredients', 'steps', 'is_liked', 'is_favorited', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'author', 'views', 'likes', 'favorites', 'created_at', 'updated_at']
 
@@ -123,6 +135,24 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             'nickname': getattr(obj.author.userprofile, 'nickname', obj.author.username)
         }
 
+    def get_is_liked(self, obj):
+        """当前用户是否已点赞"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return UserBehavior.objects.filter(
+            user=request.user, recipe=obj, behavior_type='like'
+        ).exists()
+
+    def get_is_favorited(self, obj):
+        """当前用户是否已收藏"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return UserBehavior.objects.filter(
+            user=request.user, recipe=obj, behavior_type='favorite'
+        ).exists()
+
 
 class RecipeCreateSerializer(serializers.ModelSerializer):
     """
@@ -131,8 +161,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     用于创建新食谱，包含食材和步骤的嵌套创建。
     """
 
-    # 食材列表（嵌套创建）
-    ingredients = RecipeIngredientSerializer(many=True, required=False)
+    # 食材列表（接受前端 {name, quantity, unit} 格式）
+    ingredients = RecipeIngredientCreateSerializer(many=True, required=False)
 
     # 步骤列表（嵌套创建）
     steps = CookingStepSerializer(many=True, required=False)
@@ -159,10 +189,11 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
         # 创建食材关联
         for ingredient_data in ingredients_data:
-            ingredient_id = ingredient_data.pop('ingredient_id')
+            name = ingredient_data.pop('name')
+            ingredient, _ = Ingredient.objects.get_or_create(name=name)
             RecipeIngredient.objects.create(
                 recipe=recipe,
-                ingredient_id=ingredient_id,
+                ingredient=ingredient,
                 **ingredient_data
             )
 
@@ -189,10 +220,11 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         if ingredients_data is not None:
             instance.recipe_ingredients.all().delete()
             for ingredient_data in ingredients_data:
-                ingredient_id = ingredient_data.pop('ingredient_id')
+                name = ingredient_data.pop('name')
+                ingredient, _ = Ingredient.objects.get_or_create(name=name)
                 RecipeIngredient.objects.create(
                     recipe=instance,
-                    ingredient_id=ingredient_id,
+                    ingredient=ingredient,
                     **ingredient_data
                 )
 
