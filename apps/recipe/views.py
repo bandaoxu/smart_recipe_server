@@ -23,7 +23,7 @@ from django.db.models import Q
 from common.response import success_response, error_response
 from common.pagination import StandardResultsSetPagination
 from common.permissions import IsOwnerOrReadOnly
-from .models import Recipe, UserBehavior
+from .models import Recipe, UserBehavior, RecipeIngredient
 from .serializers import (
     RecipeListSerializer,
     RecipeDetailSerializer,
@@ -68,6 +68,11 @@ class RecipeListView(APIView):
                 Q(description__icontains=search) |
                 Q(tags__contains=search)
             )
+
+        # 按作者过滤（用于他人主页）
+        author_id = request.query_params.get('author')
+        if author_id:
+            queryset = queryset.filter(author_id=author_id)
 
         # 排序
         ordering = request.query_params.get('ordering', '-created_at')
@@ -452,20 +457,59 @@ class RecipeRecommendView(APIView):
     """
     推荐食谱视图
 
-    基于用户行为推荐食谱（简单实现）。
-
-    请求方法：GET
-    权限：所有人可访问
+    已登录用户：基于用户偏好（过敏食材过滤、饮食偏好匹配、行为历史加权）的个性化推荐
+    未登录用户：按热门度排序
     """
 
     permission_classes = [AllowAny]
 
     def get(self, request):
         """获取推荐食谱"""
-        # 简单实现：返回最热门的食谱
-        queryset = Recipe.objects.filter(is_published=True).order_by('-views', '-likes')[:20]
+        queryset = Recipe.objects.filter(is_published=True)
 
-        serializer = RecipeListSerializer(queryset, many=True)
+        if request.user.is_authenticated:
+            profile = getattr(request.user, 'userprofile', None)
+
+            # 步骤 A：过滤含过敏食材的食谱
+            if profile and profile.allergies:
+                from apps.ingredient.models import Ingredient
+                allergen_ids = Ingredient.objects.filter(
+                    name__in=profile.allergies
+                ).values_list('id', flat=True)
+                exclude_recipe_ids = RecipeIngredient.objects.filter(
+                    ingredient_id__in=allergen_ids
+                ).values_list('recipe_id', flat=True)
+                queryset = queryset.exclude(id__in=exclude_recipe_ids)
+
+            # 取候选集（前 60 条按热门度）
+            recipes = list(queryset.order_by('-views', '-likes')[:60])
+
+            if profile:
+                prefs = set(profile.dietary_preference or [])
+                # 用户喜欢/收藏的食谱分类，用于加权
+                liked_categories = set(UserBehavior.objects.filter(
+                    user=request.user,
+                    behavior_type__in=['like', 'favorite']
+                ).values_list('recipe__category', flat=True))
+
+                def score(r):
+                    s = (r.views or 0) * 0.1 + (r.likes or 0) * 2
+                    # 偏好标签匹配加分
+                    if prefs and set(r.tags or []) & prefs:
+                        s += 20
+                    # 同类食谱加分
+                    if liked_categories and r.category in liked_categories:
+                        s += 15
+                    return s
+
+                recipes = sorted(recipes, key=score, reverse=True)
+
+            serializer = RecipeListSerializer(recipes[:20], many=True, context={'request': request})
+        else:
+            # 未登录：简单热门度排序
+            queryset = queryset.order_by('-views', '-likes')[:20]
+            serializer = RecipeListSerializer(queryset, many=True, context={'request': request})
+
         return success_response(data=serializer.data, message='获取推荐食谱成功')
 
 
@@ -488,3 +532,17 @@ class MyRecipesView(APIView):
 
         serializer = RecipeListSerializer(queryset, many=True)
         return success_response(data=serializer.data, message='获取我的食谱成功')
+
+
+class RecipeHotView(APIView):
+    """热门食谱列表 — 按浏览量和点赞数排序"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            limit = min(int(request.query_params.get('limit', 10)), 50)
+        except (ValueError, TypeError):
+            limit = 10
+        recipes = Recipe.objects.filter(is_published=True).order_by('-views', '-likes')[:limit]
+        serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
+        return success_response(data=serializer.data)

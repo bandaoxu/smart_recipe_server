@@ -5,7 +5,7 @@
 """
 
 from django.contrib import admin
-from .models import UserProfile
+from .models import UserProfile, Follow
 
 
 @admin.register(UserProfile)
@@ -86,4 +86,12 @@ class UserProfileAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
 
     # 排序方式
+    ordering = ['-created_at']
+
+
+@admin.register(Follow)
+class FollowAdmin(admin.ModelAdmin):
+    list_display = ['id', 'follower', 'following', 'created_at']
+    search_fields = ['follower__username', 'following__username']
+    list_per_page = 30
     ordering = ['-created_at']

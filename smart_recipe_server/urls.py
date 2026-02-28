@@ -91,6 +91,10 @@ urlpatterns = [
     # 包含：美食动态、评论等
     path('api/community/', include('apps.community.urls')),
 
+    # 营养分析模块
+    # 包含：饮食日记、营养报表、健康建议
+    path('api/nutrition/', include('apps.nutrition.urls')),
+
     # 文件上传
     path('api/upload/', upload_file, name='upload'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

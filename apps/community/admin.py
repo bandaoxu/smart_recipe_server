@@ -3,7 +3,7 @@
 """
 
 from django.contrib import admin
-from .models import FoodPost, Comment
+from .models import FoodPost, Comment, PostLike
 
 
 @admin.register(FoodPost)
@@ -30,3 +30,11 @@ class CommentAdmin(admin.ModelAdmin):
     def content_preview(self, obj):
         return obj.content[:50]
     content_preview.short_description = '内容预览'
+
+
+@admin.register(PostLike)
+class PostLikeAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'post', 'created_at']
+    search_fields = ['user__username']
+    list_per_page = 30
+    ordering = ['-created_at']

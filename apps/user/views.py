@@ -544,3 +544,116 @@ class UserLogoutView(APIView):
                 data={'error': str(e)},
                 code=400
             )
+
+
+class FollowView(APIView):
+    """
+    关注/取消关注用户
+
+    POST: 关注用户
+    DELETE: 取消关注
+
+    权限：需要登录
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        """关注用户"""
+        from django.contrib.auth.models import User as DjangoUser
+        from .models import Follow
+
+        if request.user.id == user_id:
+            return error_response(message='不能关注自己', code=400)
+
+        try:
+            target = DjangoUser.objects.get(id=user_id)
+        except DjangoUser.DoesNotExist:
+            return error_response(message='用户不存在', code=404)
+
+        _, created = Follow.objects.get_or_create(
+            follower=request.user,
+            following=target
+        )
+        return success_response(
+            data={'is_following': True, 'created': created},
+            message='关注成功'
+        )
+
+    def delete(self, request, user_id):
+        """取消关注"""
+        from .models import Follow
+        Follow.objects.filter(follower=request.user, following_id=user_id).delete()
+        return success_response(
+            data={'is_following': False},
+            message='已取消关注'
+        )
+
+
+class FollowingListView(APIView):
+    """
+    获取当前用户关注的人列表
+
+    GET: 返回当前用户关注的所有用户
+
+    权限：需要登录
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import Follow
+        following_qs = Follow.objects.filter(
+            follower=request.user
+        ).select_related('following__userprofile')
+        result = []
+        for f in following_qs:
+            u = f.following
+            profile = getattr(u, 'userprofile', None)
+            result.append({
+                'id': u.id,
+                'username': u.username,
+                'nickname': (getattr(profile, 'nickname', None) or u.username),
+                'avatar': getattr(profile, 'avatar', None),
+                'is_following': True
+            })
+        return success_response(data=result)
+
+
+class PublicUserProfileView(APIView):
+    """
+    获取他人公开档案
+
+    GET: 返回指定用户的公开信息
+
+    权限：所有人可访问（AllowAny），已登录用户会额外返回 is_following
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        from django.contrib.auth.models import User as DjangoUser
+        from .models import Follow
+        from apps.recipe.models import Recipe
+
+        try:
+            target = DjangoUser.objects.get(id=user_id)
+        except DjangoUser.DoesNotExist:
+            return error_response(message='用户不存在', code=404)
+
+        profile = getattr(target, 'userprofile', None)
+        is_following = False
+        if request.user.is_authenticated and request.user.id != user_id:
+            is_following = Follow.objects.filter(
+                follower=request.user, following=target
+            ).exists()
+
+        recipes_count = Recipe.objects.filter(author=target, is_published=True).count()
+
+        return success_response(data={
+            'id': target.id,
+            'username': target.username,
+            'nickname': (getattr(profile, 'nickname', None) or target.username),
+            'avatar': getattr(profile, 'avatar', None),
+            'followers_count': target.followers.count(),
+            'following_count': target.following.count(),
+            'recipes_count': recipes_count,
+            'is_following': is_following
+        })

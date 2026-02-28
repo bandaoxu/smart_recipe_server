@@ -30,7 +30,8 @@ from .views import (
     UserLikedListView,
     RecipeSearchView,
     RecipeRecommendView,
-    MyRecipesView
+    MyRecipesView,
+    RecipeHotView
 )
 
 # 应用命名空间
@@ -79,4 +80,8 @@ urlpatterns = [
     # 我的喜欢
     # GET /api/recipe/liked/
     path('liked/', UserLikedListView.as_view(), name='liked'),
+
+    # 热门食谱
+    # GET /api/recipe/hot/?limit=10
+    path('hot/', RecipeHotView.as_view(), name='hot'),
 ]

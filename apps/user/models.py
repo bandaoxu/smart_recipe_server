@@ -255,3 +255,34 @@ class UserProfile(models.Model):
         if not self.dietary_preference:
             return '无'
         return ', '.join(self.dietary_preference)
+
+
+class Follow(models.Model):
+    """
+    用户关注关系
+
+    记录用户之间的关注/被关注关系。
+    follower 关注了 following。
+    """
+    follower = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='following',
+        verbose_name='关注者'
+    )
+    following = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='followers',
+        verbose_name='被关注者'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='关注时间')
+
+    class Meta:
+        db_table = 'user_follow'
+        unique_together = ('follower', 'following')
+        verbose_name = '关注关系'
+        verbose_name_plural = '关注关系'
+
+    def __str__(self):
+        return f'{self.follower.username} → {self.following.username}'

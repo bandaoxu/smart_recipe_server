@@ -24,10 +24,20 @@ class FoodPostSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'likes', 'comments_count', 'created_at']
 
     def get_user(self, obj):
+        profile = getattr(obj.user, 'userprofile', None)
+        request = self.context.get('request')
+        is_following = False
+        if request and request.user.is_authenticated and request.user.id != obj.user.id:
+            from apps.user.models import Follow
+            is_following = Follow.objects.filter(
+                follower=request.user, following=obj.user
+            ).exists()
         return {
             'id': obj.user.id,
             'username': obj.user.username,
-            'nickname': getattr(obj.user.userprofile, 'nickname', obj.user.username)
+            'nickname': (getattr(profile, 'nickname', None) or obj.user.username),
+            'avatar': getattr(profile, 'avatar', None),
+            'is_following': is_following
         }
 
     def get_is_liked(self, obj):
@@ -56,9 +66,12 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at']
 
     def get_user(self, obj):
+        profile = getattr(obj.user, 'userprofile', None)
         return {
             'id': obj.user.id,
-            'username': obj.user.username
+            'username': obj.user.username,
+            'nickname': (getattr(profile, 'nickname', None) or obj.user.username),
+            'avatar': getattr(profile, 'avatar', None)
         }
 
     def get_replies(self, obj):

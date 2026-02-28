@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.recipe",
     "apps.shopping",
     "apps.community",
+    "apps.nutrition",
 ]
 
 MIDDLEWARE = [

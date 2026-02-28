@@ -625,3 +625,28 @@ class IngredientNutritionCalculateView(APIView):
             },
             message='计算成功'
         )
+
+
+class IngredientRecommendView(APIView):
+    """基于食材列表推荐食谱"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        ingredient_names = request.data.get('ingredients', [])
+        if not ingredient_names or not isinstance(ingredient_names, list):
+            return error_response(message='请提供食材列表', code=400)
+
+        from apps.recipe.models import Recipe, RecipeIngredient
+        from apps.recipe.serializers import RecipeListSerializer
+
+        matched_recipe_ids = RecipeIngredient.objects.filter(
+            ingredient__name__in=ingredient_names
+        ).values_list('recipe_id', flat=True)
+
+        recipes = Recipe.objects.filter(
+            id__in=matched_recipe_ids,
+            is_published=True
+        ).distinct().order_by('-views', '-likes')[:20]
+
+        serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
+        return success_response(data=serializer.data)

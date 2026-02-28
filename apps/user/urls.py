@@ -20,7 +20,10 @@ from .views import (
     UserLoginView,
     UserLogoutView,
     UserProfileView,
-    ChangePasswordView
+    ChangePasswordView,
+    FollowView,
+    FollowingListView,
+    PublicUserProfileView
 )
 
 # 应用命名空间
@@ -51,4 +54,17 @@ urlpatterns = [
 
     # Token 刷新（别名，前端兼容）
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+
+    # 关注/取消关注用户
+    # POST /api/user/<user_id>/follow/   - 关注
+    # DELETE /api/user/<user_id>/follow/ - 取消关注
+    path('<int:user_id>/follow/', FollowView.as_view(), name='follow'),
+
+    # 获取当前用户关注列表
+    # GET /api/user/following/
+    path('following/', FollowingListView.as_view(), name='following'),
+
+    # 获取他人公开档案（必须放在 follow 路由之后，避免路由冲突）
+    # GET /api/user/<user_id>/
+    path('<int:user_id>/', PublicUserProfileView.as_view(), name='public-profile'),
 ]

@@ -21,7 +21,8 @@ from .views import (
     IngredientRecognitionHistoryView,
     IngredientSearchView,
     IngredientSeasonalView,
-    IngredientNutritionCalculateView
+    IngredientNutritionCalculateView,
+    IngredientRecommendView
 )
 
 # 应用命名空间
@@ -55,4 +56,8 @@ urlpatterns = [
     # 营养计算
     # POST /api/ingredient/nutrition-calculate/
     path('nutrition-calculate/', IngredientNutritionCalculateView.as_view(), name='nutrition-calculate'),
+
+    # 基于食材推荐食谱
+    # POST /api/ingredient/recommend/
+    path('recommend/', IngredientRecommendView.as_view(), name='recommend'),
 ]
