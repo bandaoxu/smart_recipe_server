@@ -31,7 +31,8 @@ from .views import (
     RecipeSearchView,
     RecipeRecommendView,
     MyRecipesView,
-    RecipeHotView
+    RecipeHotView,
+    BrowseHistoryView
 )
 
 # 应用命名空间
@@ -84,4 +85,8 @@ urlpatterns = [
     # 热门食谱
     # GET /api/recipe/hot/?limit=10
     path('hot/', RecipeHotView.as_view(), name='hot'),
+
+    # 浏览历史
+    # GET /api/recipe/history/
+    path('history/', BrowseHistoryView.as_view(), name='history'),
 ]

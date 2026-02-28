@@ -546,3 +546,33 @@ class RecipeHotView(APIView):
         recipes = Recipe.objects.filter(is_published=True).order_by('-views', '-likes')[:limit]
         serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
         return success_response(data=serializer.data)
+
+
+class BrowseHistoryView(APIView):
+    """浏览历史 — 返回用户最近浏览过的不重复食谱（最新在前）"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # 每个食谱只取最近一次浏览，按时间倒序，SQLite 兼容写法
+        seen = set()
+        ordered_ids = []
+        behaviors = UserBehavior.objects.filter(
+            user=request.user, behavior_type='view'
+        ).order_by('-created_at').values_list('recipe_id', flat=True)
+        for rid in behaviors:
+            if rid not in seen:
+                seen.add(rid)
+                ordered_ids.append(rid)
+            if len(ordered_ids) >= 100:
+                break
+
+        if not ordered_ids:
+            return success_response(data=[])
+
+        recipe_map = {
+            r.id: r
+            for r in Recipe.objects.filter(id__in=ordered_ids, is_published=True)
+        }
+        recipes = [recipe_map[rid] for rid in ordered_ids if rid in recipe_map]
+        serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
+        return success_response(data=serializer.data)

@@ -15,6 +15,9 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from django.core.cache import cache
+import random
+import string
 
 from common.response import success_response, error_response
 from .models import UserProfile
@@ -179,58 +182,48 @@ class UserLoginView(APIView):
     permission_classes = [AllowAny]  # 所有人都可以登录
 
     def post(self, request):
-        """
-        处理用户登录请求
+        login_type = request.data.get('login_type', 'password')
 
-        参数：
-            request: HTTP 请求对象
-
-        返回：
-            Response: 登录结果，包含 JWT Token 和用户信息
-        """
-        # 使用序列化器验证数据
-        serializer = UserLoginSerializer(data=request.data)
-
-        if serializer.is_valid():
-            # 获取验证通过的用户对象
+        if login_type == 'phone_code':
+            # 手机号+验证码登录
+            phone = request.data.get('phone', '').strip()
+            code = request.data.get('code', '').strip()
+            if not phone or not code:
+                return error_response(message='请填写手机号和验证码', code=400)
+            cached_code = cache.get(f'sms_code_{phone}')
+            if not cached_code or cached_code != code:
+                return error_response(message='验证码错误或已过期', code=400)
+            user = User.objects.filter(userprofile__phone=phone).first()
+            if not user:
+                return error_response(message='该手机号未注册', code=404)
+            cache.delete(f'sms_code_{phone}')
+        else:
+            # 用户名+密码登录
+            serializer = UserLoginSerializer(data=request.data)
+            if not serializer.is_valid():
+                return error_response(message='登录失败', data=serializer.errors, code=400)
             user = serializer.validated_data['user']
 
-            # 生成 JWT Token
-            refresh = RefreshToken.for_user(user)
+        # 生成 JWT Token
+        refresh = RefreshToken.for_user(user)
 
-            # 获取用户档案
-            try:
-                profile = user.userprofile
-                profile_data = UserProfileSerializer(profile).data
-            except UserProfile.DoesNotExist:
-                # 如果用户档案不存在，创建一个默认档案
-                profile = UserProfile.objects.create(
-                    user=user,
-                    nickname=user.username
-                )
-                profile_data = UserProfileSerializer(profile).data
+        # 获取用户档案
+        try:
+            profile = user.userprofile
+            profile_data = UserProfileSerializer(profile).data
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=user, nickname=user.username)
+            profile_data = UserProfileSerializer(profile).data
 
-            # 返回 Token 和用户信息
-            return success_response(
-                data={
-                    'access': str(refresh.access_token),  # 访问令牌
-                    'refresh': str(refresh),  # 刷新令牌
-                    'user': {
-                        'id': user.id,
-                        'username': user.username,
-                        'email': user.email
-                    },
-                    'profile': profile_data
-                },
-                message='登录成功'
-            )
-        else:
-            # 返回验证错误信息
-            return error_response(
-                message='登录失败',
-                data=serializer.errors,
-                code=400
-            )
+        return success_response(
+            data={
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': {'id': user.id, 'username': user.username, 'email': user.email},
+                'profile': profile_data
+            },
+            message='登录成功'
+        )
 
 
 class UserProfileView(APIView):
@@ -657,3 +650,49 @@ class PublicUserProfileView(APIView):
             'recipes_count': recipes_count,
             'is_following': is_following
         })
+
+
+class SendCodeView(APIView):
+    """发送手机验证码（开发环境直接返回验证码，生产环境对接短信 SDK）"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = request.data.get('phone', '').strip()
+        if not phone or len(phone) != 11 or not phone.isdigit():
+            return error_response(message='手机号格式错误', code=400)
+        code = ''.join(random.choices(string.digits, k=6))
+        cache.set(f'sms_code_{phone}', code, 300)  # 5 分钟有效
+        # 生产环境：在此调用短信 SDK 发送 code，不要将 code 返回给前端
+        return success_response(data={'code': code}, message='验证码已发送')
+
+
+class HealthProfileView(APIView):
+    """健康档案设置 — POST /api/user/health-profile/"""
+    permission_classes = [IsAuthenticated]
+
+    HEALTH_FIELDS = [
+        'age', 'gender', 'dietary_preference',
+        'allergies', 'health_goal', 'daily_calories_target'
+    ]
+
+    def post(self, request):
+        try:
+            profile = request.user.userprofile
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=request.user, nickname=request.user.username)
+
+        for field in self.HEALTH_FIELDS:
+            if field in request.data:
+                setattr(profile, field, request.data[field])
+        profile.save()
+        serializer = UserProfileSerializer(profile)
+        return success_response(data=serializer.data, message='健康档案更新成功')
+
+    def get(self, request):
+        """GET /api/user/health-profile/ — 获取当前健康档案"""
+        try:
+            profile = request.user.userprofile
+        except UserProfile.DoesNotExist:
+            return error_response(message='档案不存在', code=404)
+        data = {field: getattr(profile, field, None) for field in self.HEALTH_FIELDS}
+        return success_response(data=data)

@@ -23,7 +23,9 @@ from .views import (
     ChangePasswordView,
     FollowView,
     FollowingListView,
-    PublicUserProfileView
+    PublicUserProfileView,
+    SendCodeView,
+    HealthProfileView
 )
 
 # 应用命名空间
@@ -54,6 +56,14 @@ urlpatterns = [
 
     # Token 刷新（别名，前端兼容）
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+
+    # 发送手机验证码
+    # POST /api/user/send-code/
+    path('send-code/', SendCodeView.as_view(), name='send-code'),
+
+    # 健康档案
+    # GET/POST /api/user/health-profile/
+    path('health-profile/', HealthProfileView.as_view(), name='health-profile'),
 
     # 关注/取消关注用户
     # POST /api/user/<user_id>/follow/   - 关注
