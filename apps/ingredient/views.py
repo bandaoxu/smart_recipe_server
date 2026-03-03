@@ -195,96 +195,71 @@ class IngredientRecognizeView(APIView):
     食材识别视图
 
     上传图片识别食材（AI 功能）。
+    当前为模拟实现：从数据库随机抽取食材作为识别结果，
+    生产环境替换为真实 AI 模型（ResNet/MobileNet 迁移学习）。
 
     请求方法：POST
     权限：需要登录（IsAuthenticated）
-
-    请求参数：
-        image_url (str): 图片 URL，必填
-
-    响应格式：
-        {
-            "code": 200,
-            "message": "识别成功",
-            "data": {
-                "recognition_id": 1,
-                "ingredients": [
-                    {
-                        "name": "西红柿",
-                        "confidence": 0.95,
-                        "ingredient_id": 1
-                    },
-                    {
-                        "name": "鸡蛋",
-                        "confidence": 0.88,
-                        "ingredient_id": 2
-                    }
-                ],
-                "total_items": 2
-            }
-        }
-
-    使用示例：
-        POST /api/ingredient/recognize/
-        Headers: {"Authorization": "Bearer <access_token>"}
-        {
-            "image_url": "http://example.com/food.jpg"
-        }
-
-    注意：
-        这是一个示例实现，实际项目中需要集成真实的 AI 模型。
-        目前使用模拟数据返回识别结果。
+    请求参数：image_url (str): 图片 URL，必填
     """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """
-        处理食材识别请求
-
-        参数：
-            request: HTTP 请求对象
-
-        返回：
-            Response: 识别结果
-        """
-        # 验证请求数据
         serializer = IngredientRecognizeRequestSerializer(data=request.data)
         if not serializer.is_valid():
-            return error_response(
-                message='参数错误',
-                data=serializer.errors,
-                code=400
-            )
+            return error_response(message='参数错误', data=serializer.errors, code=400)
 
         image_url = serializer.validated_data['image_url']
 
-        # TODO: 调用 AI 模型识别食材
-        # 这里使用模拟数据，实际项目中需要调用真实的 AI 识别服务
-        # 例如：result = ai_model.recognize(image_url)
+        # 模拟 AI 识别：从 DB 随机抽取食材，生产环境替换为真实模型调用
+        import random
+        candidates = list(Ingredient.objects.all()[:100])
+        if candidates:
+            count = min(random.randint(2, 5), len(candidates))
+            picked = random.sample(candidates, count)
+            # 按置信度降序，第一个最高
+            confidences = sorted(
+                [round(random.uniform(0.60, 0.98), 2) for _ in range(count)],
+                reverse=True
+            )
+            ingredients = [
+                {
+                    'name': ing.name,
+                    'confidence': conf,
+                    'ingredient_id': ing.id,
+                    'nutrition': {
+                        'calories': float(ing.calories) if ing.calories else 0,
+                        'protein': float(ing.protein) if ing.protein else 0,
+                        'fat': float(ing.fat) if ing.fat else 0,
+                        'carbohydrate': float(ing.carbohydrate) if ing.carbohydrate else 0,
+                    }
+                }
+                for ing, conf in zip(picked, confidences)
+            ]
+        else:
+            # 数据库无食材时的兜底 mock
+            ingredients = [
+                {'name': '西红柿', 'confidence': 0.95, 'ingredient_id': None,
+                 'nutrition': {'calories': 18, 'protein': 0.9, 'fat': 0.2, 'carbohydrate': 3.9}},
+                {'name': '鸡蛋', 'confidence': 0.88, 'ingredient_id': None,
+                 'nutrition': {'calories': 144, 'protein': 12.7, 'fat': 9.0, 'carbohydrate': 1.5}},
+            ]
 
-        # 模拟识别结果
-        mock_result = {
-            'ingredients': [
-                {'name': '西红柿', 'confidence': 0.95, 'ingredient_id': 1},
-                {'name': '鸡蛋', 'confidence': 0.88, 'ingredient_id': 2}
-            ],
-            'total_items': 2,
-            'processing_time': 1.2
-        }
+        recognition_result = {'ingredients': ingredients, 'total_items': len(ingredients)}
 
         # 保存识别记录
         recognition = IngredientRecognition.objects.create(
             user=request.user,
             image_url=image_url,
-            recognition_result=mock_result
+            recognition_result=recognition_result
         )
 
         return success_response(
             data={
                 'recognition_id': recognition.id,
-                'ingredients': mock_result['ingredients'],
-                'total_items': mock_result['total_items']
+                'ingredients': ingredients,
+                'total_items': len(ingredients)
             },
             message='识别成功'
         )

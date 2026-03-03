@@ -182,8 +182,6 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    # 日期时间格式
-    "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
 }
 
 
