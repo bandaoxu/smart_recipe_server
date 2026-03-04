@@ -195,8 +195,8 @@ class IngredientRecognizeView(APIView):
     食材识别视图
 
     上传图片识别食材（AI 功能）。
-    当前为模拟实现：从数据库随机抽取食材作为识别结果，
-    生产环境替换为真实 AI 模型（ResNet/MobileNet 迁移学习）。
+    使用 MobileNetV3Small 迁移学习模型进行推理；
+    模型未训练时自动 fallback 到数据库随机抽取。
 
     请求方法：POST
     权限：需要登录（IsAuthenticated）
@@ -212,39 +212,59 @@ class IngredientRecognizeView(APIView):
 
         image_url = serializer.validated_data['image_url']
 
-        # 模拟 AI 识别：从 DB 随机抽取食材，生产环境替换为真实模型调用
-        import random
-        candidates = list(Ingredient.objects.all()[:100])
-        if candidates:
-            count = min(random.randint(2, 5), len(candidates))
-            picked = random.sample(candidates, count)
-            # 按置信度降序，第一个最高
-            confidences = sorted(
-                [round(random.uniform(0.60, 0.98), 2) for _ in range(count)],
-                reverse=True
-            )
-            ingredients = [
-                {
-                    'name': ing.name,
-                    'confidence': conf,
-                    'ingredient_id': ing.id,
+        # ── 尝试真实模型推理 ──────────────────────────────────────────────────
+        from .ml.inference import IngredientClassifier
+        classifier = IngredientClassifier()
+        predictions = classifier.predict(image_url, top_k=5)
+
+        if predictions is not None:
+            # 用推理结果查 DB，补充 ingredient_id 和营养信息
+            ingredients = []
+            for pred in predictions:
+                ing = Ingredient.objects.filter(name=pred['name']).first()
+                ingredients.append({
+                    'name': pred['name'],
+                    'confidence': pred['confidence'],
+                    'ingredient_id': ing.id if ing else None,
                     'nutrition': {
-                        'calories': float(ing.calories) if ing.calories else 0,
-                        'protein': float(ing.protein) if ing.protein else 0,
-                        'fat': float(ing.fat) if ing.fat else 0,
-                        'carbohydrate': float(ing.carbohydrate) if ing.carbohydrate else 0,
-                    }
-                }
-                for ing, conf in zip(picked, confidences)
-            ]
+                        'calories': float(ing.calories) if ing else 0,
+                        'protein': float(ing.protein) if ing else 0,
+                        'fat': float(ing.fat) if ing else 0,
+                        'carbohydrate': float(ing.carbohydrate) if ing else 0,
+                    },
+                })
         else:
-            # 数据库无食材时的兜底 mock
-            ingredients = [
-                {'name': '西红柿', 'confidence': 0.95, 'ingredient_id': None,
-                 'nutrition': {'calories': 18, 'protein': 0.9, 'fat': 0.2, 'carbohydrate': 3.9}},
-                {'name': '鸡蛋', 'confidence': 0.88, 'ingredient_id': None,
-                 'nutrition': {'calories': 144, 'protein': 12.7, 'fat': 9.0, 'carbohydrate': 1.5}},
-            ]
+            # ── Fallback：模型未训练，从 DB 随机抽取 ─────────────────────────
+            import random
+            candidates = list(Ingredient.objects.all()[:100])
+            if candidates:
+                count = min(random.randint(2, 5), len(candidates))
+                picked = random.sample(candidates, count)
+                confidences = sorted(
+                    [round(random.uniform(0.60, 0.98), 2) for _ in range(count)],
+                    reverse=True,
+                )
+                ingredients = [
+                    {
+                        'name': ing.name,
+                        'confidence': conf,
+                        'ingredient_id': ing.id,
+                        'nutrition': {
+                            'calories': float(ing.calories) if ing.calories else 0,
+                            'protein': float(ing.protein) if ing.protein else 0,
+                            'fat': float(ing.fat) if ing.fat else 0,
+                            'carbohydrate': float(ing.carbohydrate) if ing.carbohydrate else 0,
+                        },
+                    }
+                    for ing, conf in zip(picked, confidences)
+                ]
+            else:
+                ingredients = [
+                    {'name': '西红柿', 'confidence': 0.95, 'ingredient_id': None,
+                     'nutrition': {'calories': 18, 'protein': 0.9, 'fat': 0.2, 'carbohydrate': 3.9}},
+                    {'name': '鸡蛋', 'confidence': 0.88, 'ingredient_id': None,
+                     'nutrition': {'calories': 144, 'protein': 12.7, 'fat': 9.0, 'carbohydrate': 1.5}},
+                ]
 
         recognition_result = {'ingredients': ingredients, 'total_items': len(ingredients)}
 
@@ -252,16 +272,16 @@ class IngredientRecognizeView(APIView):
         recognition = IngredientRecognition.objects.create(
             user=request.user,
             image_url=image_url,
-            recognition_result=recognition_result
+            recognition_result=recognition_result,
         )
 
         return success_response(
             data={
                 'recognition_id': recognition.id,
                 'ingredients': ingredients,
-                'total_items': len(ingredients)
+                'total_items': len(ingredients),
             },
-            message='识别成功'
+            message='识别成功',
         )
 
 
