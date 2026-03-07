@@ -27,7 +27,7 @@ from .models import Recipe, UserBehavior, RecipeIngredient
 from .serializers import (
     RecipeListSerializer,
     RecipeDetailSerializer,
-    RecipeCreateSerializer
+    RecipeCreateSerializer,
 )
 
 
@@ -37,7 +37,7 @@ class RecipeListView(APIView):
     """
 
     def get_permissions(self):
-        if self.request.method == 'POST':
+        if self.request.method == "POST":
             return [IsAuthenticated()]
         return [AllowAny()]
 
@@ -46,36 +46,37 @@ class RecipeListView(APIView):
         queryset = Recipe.objects.filter(is_published=True)
 
         # 分类过滤
-        category = request.query_params.get('category')
+        category = request.query_params.get("category")
         if category:
             queryset = queryset.filter(category=category)
 
         # 难度过滤
-        difficulty = request.query_params.get('difficulty')
+        difficulty = request.query_params.get("difficulty")
         if difficulty:
             queryset = queryset.filter(difficulty=difficulty)
 
         # 菜系过滤
-        cuisine_type = request.query_params.get('cuisine_type')
+        cuisine_type = request.query_params.get("cuisine_type")
         if cuisine_type:
             queryset = queryset.filter(cuisine_type=cuisine_type)
 
         # 搜索
-        search = request.query_params.get('search')
+        search = request.query_params.get("search")
         if search:
             queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(description__icontains=search) |
-                Q(tags__contains=search)
-            )
+                Q(name__icontains=search)
+                | Q(description__icontains=search)
+                | Q(tags__icontains=search)
+                | Q(recipe_ingredients__ingredient__name__icontains=search)
+            ).distinct()
 
         # 按作者过滤（用于他人主页）
-        author_id = request.query_params.get('author')
+        author_id = request.query_params.get("author")
         if author_id:
             queryset = queryset.filter(author_id=author_id)
 
         # 排序
-        ordering = request.query_params.get('ordering', '-created_at')
+        ordering = request.query_params.get("ordering", "-created_at")
         queryset = queryset.order_by(ordering)
 
         # 分页
@@ -85,19 +86,21 @@ class RecipeListView(APIView):
         if page is not None:
             serializer = RecipeListSerializer(page, many=True)
             result = paginator.get_paginated_response(serializer.data)
-            return success_response(data=result.data, message='获取食谱列表成功')
+            return success_response(data=result.data, message="获取食谱列表成功")
 
         serializer = RecipeListSerializer(queryset, many=True)
-        return success_response(data=serializer.data, message='获取食谱列表成功')
+        return success_response(data=serializer.data, message="获取食谱列表成功")
 
     def post(self, request):
         """创建食谱（兼容 POST /api/recipe/）"""
-        serializer = RecipeCreateSerializer(data=request.data, context={'request': request})
+        serializer = RecipeCreateSerializer(
+            data=request.data, context={"request": request}
+        )
         if serializer.is_valid():
             recipe = serializer.save()
             detail_serializer = RecipeDetailSerializer(recipe)
-            return success_response(data=detail_serializer.data, message='创建食谱成功')
-        return error_response(message='创建失败', data=serializer.errors, code=400)
+            return success_response(data=detail_serializer.data, message="创建食谱成功")
+        return error_response(message="创建失败", data=serializer.errors, code=400)
 
 
 class RecipeDetailView(APIView):
@@ -117,7 +120,7 @@ class RecipeDetailView(APIView):
         try:
             recipe = Recipe.objects.get(id=recipe_id, is_published=True)
         except Recipe.DoesNotExist:
-            return error_response(message='食谱不存在', code=404)
+            return error_response(message="食谱不存在", code=404)
 
         # 增加浏览次数
         recipe.increment_views()
@@ -125,13 +128,11 @@ class RecipeDetailView(APIView):
         # 记录用户浏览行为（如果已登录）
         if request.user.is_authenticated:
             UserBehavior.objects.create(
-                user=request.user,
-                recipe=recipe,
-                behavior_type='view'
+                user=request.user, recipe=recipe, behavior_type="view"
             )
 
-        serializer = RecipeDetailSerializer(recipe, context={'request': request})
-        return success_response(data=serializer.data, message='获取食谱详情成功')
+        serializer = RecipeDetailSerializer(recipe, context={"request": request})
+        return success_response(data=serializer.data, message="获取食谱详情成功")
 
 
 class RecipeCreateView(APIView):
@@ -149,23 +150,15 @@ class RecipeCreateView(APIView):
     def post(self, request):
         """创建食谱"""
         serializer = RecipeCreateSerializer(
-            data=request.data,
-            context={'request': request}
+            data=request.data, context={"request": request}
         )
 
         if serializer.is_valid():
             recipe = serializer.save()
             detail_serializer = RecipeDetailSerializer(recipe)
-            return success_response(
-                data=detail_serializer.data,
-                message='创建食谱成功'
-            )
+            return success_response(data=detail_serializer.data, message="创建食谱成功")
         else:
-            return error_response(
-                message='创建失败',
-                data=serializer.errors,
-                code=400
-            )
+            return error_response(message="创建失败", data=serializer.errors, code=400)
 
 
 class RecipeUpdateView(APIView):
@@ -193,32 +186,22 @@ class RecipeUpdateView(APIView):
         try:
             recipe = Recipe.objects.get(id=recipe_id)
         except Recipe.DoesNotExist:
-            return error_response(message='食谱不存在', code=404)
+            return error_response(message="食谱不存在", code=404)
 
         # 检查权限
         if recipe.author != request.user:
-            return error_response(message='无权限操作', code=403)
+            return error_response(message="无权限操作", code=403)
 
         serializer = RecipeCreateSerializer(
-            recipe,
-            data=request.data,
-            partial=partial,
-            context={'request': request}
+            recipe, data=request.data, partial=partial, context={"request": request}
         )
 
         if serializer.is_valid():
             recipe = serializer.save()
             detail_serializer = RecipeDetailSerializer(recipe)
-            return success_response(
-                data=detail_serializer.data,
-                message='更新食谱成功'
-            )
+            return success_response(data=detail_serializer.data, message="更新食谱成功")
         else:
-            return error_response(
-                message='更新失败',
-                data=serializer.errors,
-                code=400
-            )
+            return error_response(message="更新失败", data=serializer.errors, code=400)
 
 
 class RecipeDeleteView(APIView):
@@ -238,14 +221,14 @@ class RecipeDeleteView(APIView):
         try:
             recipe = Recipe.objects.get(id=recipe_id)
         except Recipe.DoesNotExist:
-            return error_response(message='食谱不存在', code=404)
+            return error_response(message="食谱不存在", code=404)
 
         # 检查权限
         if recipe.author != request.user:
-            return error_response(message='无权限操作', code=403)
+            return error_response(message="无权限操作", code=403)
 
         recipe.delete()
-        return success_response(message='删除食谱成功')
+        return success_response(message="删除食谱成功")
 
 
 class RecipeLikeView(APIView):
@@ -265,29 +248,25 @@ class RecipeLikeView(APIView):
         try:
             recipe = Recipe.objects.get(id=recipe_id, is_published=True)
         except Recipe.DoesNotExist:
-            return error_response(message='食谱不存在', code=404)
+            return error_response(message="食谱不存在", code=404)
 
         # 检查是否已点赞
         behavior = UserBehavior.objects.filter(
-            user=request.user,
-            recipe=recipe,
-            behavior_type='like'
+            user=request.user, recipe=recipe, behavior_type="like"
         ).first()
 
         if behavior:
             # 已点赞，取消点赞
             behavior.delete()
             recipe.decrement_likes()
-            return success_response(message='取消点赞成功')
+            return success_response(message="取消点赞成功")
         else:
             # 未点赞，添加点赞
             UserBehavior.objects.create(
-                user=request.user,
-                recipe=recipe,
-                behavior_type='like'
+                user=request.user, recipe=recipe, behavior_type="like"
             )
             recipe.increment_likes()
-            return success_response(message='点赞成功')
+            return success_response(message="点赞成功")
 
 
 class RecipeFavoriteView(APIView):
@@ -307,29 +286,25 @@ class RecipeFavoriteView(APIView):
         try:
             recipe = Recipe.objects.get(id=recipe_id, is_published=True)
         except Recipe.DoesNotExist:
-            return error_response(message='食谱不存在', code=404)
+            return error_response(message="食谱不存在", code=404)
 
         # 检查是否已收藏
         behavior = UserBehavior.objects.filter(
-            user=request.user,
-            recipe=recipe,
-            behavior_type='favorite'
+            user=request.user, recipe=recipe, behavior_type="favorite"
         ).first()
 
         if behavior:
             # 已收藏，取消收藏
             behavior.delete()
             recipe.decrement_favorites()
-            return success_response(message='取消收藏成功')
+            return success_response(message="取消收藏成功")
         else:
             # 未收藏，添加收藏
             UserBehavior.objects.create(
-                user=request.user,
-                recipe=recipe,
-                behavior_type='favorite'
+                user=request.user, recipe=recipe, behavior_type="favorite"
             )
             recipe.increment_favorites()
-            return success_response(message='收藏成功')
+            return success_response(message="收藏成功")
 
 
 class UserFavoriteListView(APIView):
@@ -348,15 +323,11 @@ class UserFavoriteListView(APIView):
         """获取用户收藏列表"""
         # 获取用户收藏的食谱 ID 列表
         favorite_recipe_ids = UserBehavior.objects.filter(
-            user=request.user,
-            behavior_type='favorite'
-        ).values_list('recipe_id', flat=True)
+            user=request.user, behavior_type="favorite"
+        ).values_list("recipe_id", flat=True)
 
         # 获取食谱列表
-        queryset = Recipe.objects.filter(
-            id__in=favorite_recipe_ids,
-            is_published=True
-        )
+        queryset = Recipe.objects.filter(id__in=favorite_recipe_ids, is_published=True)
 
         # 分页
         paginator = StandardResultsSetPagination()
@@ -365,10 +336,10 @@ class UserFavoriteListView(APIView):
         if page is not None:
             serializer = RecipeListSerializer(page, many=True)
             result = paginator.get_paginated_response(serializer.data)
-            return success_response(data=result.data, message='获取收藏列表成功')
+            return success_response(data=result.data, message="获取收藏列表成功")
 
         serializer = RecipeListSerializer(queryset, many=True)
-        return success_response(data=serializer.data, message='获取收藏列表成功')
+        return success_response(data=serializer.data, message="获取收藏列表成功")
 
 
 class UserLikedListView(APIView):
@@ -379,14 +350,10 @@ class UserLikedListView(APIView):
     def get(self, request):
         """获取用户点赞的食谱列表"""
         liked_recipe_ids = UserBehavior.objects.filter(
-            user=request.user,
-            behavior_type='like'
-        ).values_list('recipe_id', flat=True)
+            user=request.user, behavior_type="like"
+        ).values_list("recipe_id", flat=True)
 
-        queryset = Recipe.objects.filter(
-            id__in=liked_recipe_ids,
-            is_published=True
-        )
+        queryset = Recipe.objects.filter(id__in=liked_recipe_ids, is_published=True)
 
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(queryset, request)
@@ -394,10 +361,10 @@ class UserLikedListView(APIView):
         if page is not None:
             serializer = RecipeListSerializer(page, many=True)
             result = paginator.get_paginated_response(serializer.data)
-            return success_response(data=result.data, message='获取喜欢列表成功')
+            return success_response(data=result.data, message="获取喜欢列表成功")
 
         serializer = RecipeListSerializer(queryset, many=True)
-        return success_response(data=serializer.data, message='获取喜欢列表成功')
+        return success_response(data=serializer.data, message="获取喜欢列表成功")
 
 
 class RecipeSearchView(APIView):
@@ -414,18 +381,19 @@ class RecipeSearchView(APIView):
 
     def get(self, request):
         """搜索食谱"""
-        keyword = request.query_params.get('q', '').strip()
+        keyword = request.query_params.get("q", "").strip()
 
         if not keyword:
-            return error_response(message='请输入搜索关键词', code=400)
+            return error_response(message="请输入搜索关键词", code=400)
 
         # 搜索食谱（名称、描述、标签包含关键词）
         queryset = Recipe.objects.filter(
-            Q(name__icontains=keyword) |
-            Q(description__icontains=keyword) |
-            Q(tags__contains=keyword),
-            is_published=True
-        )
+            Q(name__icontains=keyword)
+            | Q(description__icontains=keyword)
+            | Q(tags__icontains=keyword)  # JSONField查询方式
+            | Q(recipe_ingredients__ingredient__name__icontains=keyword),
+            is_published=True,
+        ).distinct()  # 添加distinct避免重复
 
         # 分页
         paginator = StandardResultsSetPagination()
@@ -435,21 +403,21 @@ class RecipeSearchView(APIView):
             serializer = RecipeListSerializer(page, many=True)
             return success_response(
                 data={
-                    'keyword': keyword,
-                    'count': paginator.page.paginator.count,
-                    'results': serializer.data
+                    "keyword": keyword,
+                    "count": paginator.page.paginator.count,
+                    "results": serializer.data,
                 },
-                message='搜索成功'
+                message="搜索成功",
             )
 
         serializer = RecipeListSerializer(queryset, many=True)
         return success_response(
             data={
-                'keyword': keyword,
-                'count': queryset.count(),
-                'results': serializer.data
+                "keyword": keyword,
+                "count": queryset.count(),
+                "results": serializer.data,
             },
-            message='搜索成功'
+            message="搜索成功",
         )
 
 
@@ -468,29 +436,31 @@ class RecipeRecommendView(APIView):
         queryset = Recipe.objects.filter(is_published=True)
 
         if request.user.is_authenticated:
-            profile = getattr(request.user, 'userprofile', None)
+            profile = getattr(request.user, "userprofile", None)
 
             # 步骤 A：过滤含过敏食材的食谱
             if profile and profile.allergies:
                 from apps.ingredient.models import Ingredient
+
                 allergen_ids = Ingredient.objects.filter(
                     name__in=profile.allergies
-                ).values_list('id', flat=True)
+                ).values_list("id", flat=True)
                 exclude_recipe_ids = RecipeIngredient.objects.filter(
                     ingredient_id__in=allergen_ids
-                ).values_list('recipe_id', flat=True)
+                ).values_list("recipe_id", flat=True)
                 queryset = queryset.exclude(id__in=exclude_recipe_ids)
 
             # 取候选集（前 60 条按热门度）
-            recipes = list(queryset.order_by('-views', '-likes')[:60])
+            recipes = list(queryset.order_by("-views", "-likes")[:60])
 
             if profile:
                 prefs = set(profile.dietary_preference or [])
                 # 用户喜欢/收藏的食谱分类，用于加权
-                liked_categories = set(UserBehavior.objects.filter(
-                    user=request.user,
-                    behavior_type__in=['like', 'favorite']
-                ).values_list('recipe__category', flat=True))
+                liked_categories = set(
+                    UserBehavior.objects.filter(
+                        user=request.user, behavior_type__in=["like", "favorite"]
+                    ).values_list("recipe__category", flat=True)
+                )
 
                 def score(r):
                     s = (r.views or 0) * 0.1 + (r.likes or 0) * 2
@@ -504,13 +474,17 @@ class RecipeRecommendView(APIView):
 
                 recipes = sorted(recipes, key=score, reverse=True)
 
-            serializer = RecipeListSerializer(recipes[:20], many=True, context={'request': request})
+            serializer = RecipeListSerializer(
+                recipes[:20], many=True, context={"request": request}
+            )
         else:
             # 未登录：简单热门度排序
-            queryset = queryset.order_by('-views', '-likes')[:20]
-            serializer = RecipeListSerializer(queryset, many=True, context={'request': request})
+            queryset = queryset.order_by("-views", "-likes")[:20]
+            serializer = RecipeListSerializer(
+                queryset, many=True, context={"request": request}
+            )
 
-        return success_response(data=serializer.data, message='获取推荐食谱成功')
+        return success_response(data=serializer.data, message="获取推荐食谱成功")
 
 
 class MyRecipesView(APIView):
@@ -520,7 +494,7 @@ class MyRecipesView(APIView):
 
     def get(self, request):
         """获取当前用户创建的食谱"""
-        queryset = Recipe.objects.filter(author=request.user).order_by('-created_at')
+        queryset = Recipe.objects.filter(author=request.user).order_by("-created_at")
 
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(queryset, request)
@@ -528,37 +502,45 @@ class MyRecipesView(APIView):
         if page is not None:
             serializer = RecipeListSerializer(page, many=True)
             result = paginator.get_paginated_response(serializer.data)
-            return success_response(data=result.data, message='获取我的食谱成功')
+            return success_response(data=result.data, message="获取我的食谱成功")
 
         serializer = RecipeListSerializer(queryset, many=True)
-        return success_response(data=serializer.data, message='获取我的食谱成功')
+        return success_response(data=serializer.data, message="获取我的食谱成功")
 
 
 class RecipeHotView(APIView):
     """热门食谱列表 — 按浏览量和点赞数排序"""
+
     permission_classes = [AllowAny]
 
     def get(self, request):
         try:
-            limit = min(int(request.query_params.get('limit', 10)), 50)
+            limit = min(int(request.query_params.get("limit", 10)), 50)
         except (ValueError, TypeError):
             limit = 10
-        recipes = Recipe.objects.filter(is_published=True).order_by('-views', '-likes')[:limit]
-        serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
+        recipes = Recipe.objects.filter(is_published=True).order_by("-views", "-likes")[
+            :limit
+        ]
+        serializer = RecipeListSerializer(
+            recipes, many=True, context={"request": request}
+        )
         return success_response(data=serializer.data)
 
 
 class BrowseHistoryView(APIView):
     """浏览历史 — 返回用户最近浏览过的不重复食谱（最新在前）"""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         # 每个食谱只取最近一次浏览，按时间倒序，SQLite 兼容写法
         seen = set()
         ordered_ids = []
-        behaviors = UserBehavior.objects.filter(
-            user=request.user, behavior_type='view'
-        ).order_by('-created_at').values_list('recipe_id', flat=True)
+        behaviors = (
+            UserBehavior.objects.filter(user=request.user, behavior_type="view")
+            .order_by("-created_at")
+            .values_list("recipe_id", flat=True)
+        )
         for rid in behaviors:
             if rid not in seen:
                 seen.add(rid)
@@ -574,5 +556,7 @@ class BrowseHistoryView(APIView):
             for r in Recipe.objects.filter(id__in=ordered_ids, is_published=True)
         }
         recipes = [recipe_map[rid] for rid in ordered_ids if rid in recipe_map]
-        serializer = RecipeListSerializer(recipes, many=True, context={'request': request})
+        serializer = RecipeListSerializer(
+            recipes, many=True, context={"request": request}
+        )
         return success_response(data=serializer.data)
