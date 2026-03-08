@@ -12,16 +12,19 @@ uv run python manage.py runserver
 ## 2. 访问管理后台
 
 ### 创建超级用户
+
 ```bash
 uv run python manage.py createsuperuser
 ```
 
 ### 登录后台
+
 访问：http://127.0.0.1:8000/admin/
 
 ## 3. API 接口测试（使用 Postman 或 curl）
 
 ### 3.1 用户注册
+
 ```bash
 curl -X POST http://127.0.0.1:8000/api/user/register/ \
   -H "Content-Type: application/json" \
@@ -34,6 +37,7 @@ curl -X POST http://127.0.0.1:8000/api/user/register/ \
 ```
 
 ### 3.2 用户登录
+
 ```bash
 curl -X POST http://127.0.0.1:8000/api/user/login/ \
   -H "Content-Type: application/json" \
@@ -44,6 +48,7 @@ curl -X POST http://127.0.0.1:8000/api/user/login/ \
 ```
 
 返回示例：
+
 ```json
 {
   "code": 200,
@@ -58,16 +63,19 @@ curl -X POST http://127.0.0.1:8000/api/user/login/ \
 ```
 
 ### 3.3 获取食材列表
+
 ```bash
 curl http://127.0.0.1:8000/api/ingredient/
 ```
 
 ### 3.4 获取食谱列表
+
 ```bash
 curl http://127.0.0.1:8000/api/recipe/
 ```
 
 ### 3.5 创建食谱（需要登录）
+
 ```bash
 curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
   -H "Content-Type: application/json" \
@@ -83,9 +91,16 @@ curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
   }'
 ```
 
+### 3.6已登录用户：混合推荐（协同过滤 + 内容推荐 + 健康目标规则 + Neural CF） 未登录用户：按热门度排序
+
+```bash
+curl http://127.0.0.1:8000/api/recipe/recommend/
+```
+
 ## 4. 主要 API 端点
 
 ### 用户模块 (/api/user/)
+
 - POST /register - 注册
 - POST /login - 登录
 - GET /profile - 获取用户档案
@@ -93,6 +108,7 @@ curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
 - POST /change-password - 修改密码
 
 ### 食材模块 (/api/ingredient/)
+
 - GET / - 食材列表
 - GET /<id>/ - 食材详情
 - GET /search/?q=关键词 - 搜索食材
@@ -101,6 +117,7 @@ curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
 - POST /nutrition-calculate/ - 营养计算
 
 ### 食谱模块 (/api/recipe/)
+
 - GET / - 食谱列表
 - POST /create/ - 创建食谱
 - GET /<id>/ - 食谱详情
@@ -113,6 +130,7 @@ curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
 - GET /recommend/ - 推荐食谱
 
 ### 购物清单模块 (/api/shopping-list/)
+
 - GET / - 购物清单
 - POST / - 添加食材
 - PUT /<id>/ - 更新购买状态
@@ -120,6 +138,7 @@ curl -X POST http://127.0.0.1:8000/api/recipe/create/ \
 - POST /generate/ - 基于食谱生成清单
 
 ### 社区模块 (/api/community/)
+
 - GET /feed/ - 动态流
 - POST /post/ - 发布动态
 - GET /post/<id>/ - 动态详情
@@ -144,6 +163,7 @@ DATABASES = {
 ```
 
 然后重新迁移：
+
 ```bash
 # 确保 PostgreSQL 服务已启动
 # 创建数据库
@@ -206,15 +226,18 @@ uv run python test_config.py
 ## 9. 故障排除
 
 ### 数据库连接失败
+
 - 检查 PostgreSQL 服务是否启动
 - 检查 .env 文件中的数据库配置
 - 临时使用 SQLite 测试
 
 ### 迁移失败
+
 - 删除 migrations 文件夹重新迁移
 - 检查模型定义是否正确
 
 ### 端口被占用
+
 ```bash
 uv run python manage.py runserver 8001
 ```

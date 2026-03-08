@@ -59,7 +59,35 @@ class CookingStepSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
-class RecipeListSerializer(serializers.ModelSerializer):
+class NutritionMixin:
+    """计算食谱营养信息的 Mixin，供列表和详情序列化器复用"""
+
+    def _get_nutrition(self, obj):
+        cache_key = f'__nutrition_{obj.pk}'
+        if not hasattr(obj, cache_key):
+            totals = {'calories': 0.0, 'protein': 0.0, 'fat': 0.0, 'carbohydrate': 0.0}
+            for ri in obj.recipe_ingredients.all():
+                ing = ri.ingredient
+                factor = float(ri.quantity) / 100
+                for key in totals:
+                    totals[key] += float(getattr(ing, key) or 0) * factor
+            setattr(obj, cache_key, {k: round(v, 1) for k, v in totals.items()})
+        return getattr(obj, cache_key)
+
+    def get_total_calories(self, obj):
+        return self._get_nutrition(obj)['calories']
+
+    def get_total_protein(self, obj):
+        return self._get_nutrition(obj)['protein']
+
+    def get_total_fat(self, obj):
+        return self._get_nutrition(obj)['fat']
+
+    def get_total_carbohydrate(self, obj):
+        return self._get_nutrition(obj)['carbohydrate']
+
+
+class RecipeListSerializer(NutritionMixin, serializers.ModelSerializer):
     """
     食谱列表序列化器（精简版）
 
@@ -74,12 +102,19 @@ class RecipeListSerializer(serializers.ModelSerializer):
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     cuisine_type_display = serializers.CharField(source='get_cuisine_type_display', read_only=True)
 
+    # 动态计算营养字段（覆盖 model 字段 total_calories）
+    total_calories     = serializers.SerializerMethodField()
+    total_protein      = serializers.SerializerMethodField()
+    total_fat          = serializers.SerializerMethodField()
+    total_carbohydrate = serializers.SerializerMethodField()
+
     class Meta:
         model = Recipe
         fields = [
             'id', 'name', 'cover_image', 'author', 'difficulty', 'difficulty_display',
             'cooking_time', 'servings', 'category', 'category_display',
-            'cuisine_type', 'cuisine_type_display', 'tags', 'total_calories',
+            'cuisine_type', 'cuisine_type_display', 'tags',
+            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate',
             'views', 'likes', 'favorites', 'created_at'
         ]
         read_only_fields = ['id', 'views', 'likes', 'favorites', 'created_at']
@@ -93,7 +128,7 @@ class RecipeListSerializer(serializers.ModelSerializer):
         }
 
 
-class RecipeDetailSerializer(serializers.ModelSerializer):
+class RecipeDetailSerializer(NutritionMixin, serializers.ModelSerializer):
     """
     食谱详情序列化器（完整版）
 
@@ -116,12 +151,19 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
 
+    # 动态计算营养字段（覆盖 model 字段 total_calories）
+    total_calories     = serializers.SerializerMethodField()
+    total_protein      = serializers.SerializerMethodField()
+    total_fat          = serializers.SerializerMethodField()
+    total_carbohydrate = serializers.SerializerMethodField()
+
     class Meta:
         model = Recipe
         fields = [
             'id', 'name', 'cover_image', 'author', 'difficulty', 'difficulty_display',
             'cooking_time', 'servings', 'category', 'category_display',
-            'cuisine_type', 'cuisine_type_display', 'tags', 'total_calories',
+            'cuisine_type', 'cuisine_type_display', 'tags',
+            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate',
             'description', 'views', 'likes', 'favorites', 'is_published',
             'ingredients', 'steps', 'is_liked', 'is_favorited', 'created_at', 'updated_at'
         ]

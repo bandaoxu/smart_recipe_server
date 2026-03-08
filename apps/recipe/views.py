@@ -43,7 +43,9 @@ class RecipeListView(APIView):
 
     def get(self, request):
         """获取食谱列表"""
-        queryset = Recipe.objects.filter(is_published=True)
+        queryset = Recipe.objects.filter(is_published=True).prefetch_related(
+            'recipe_ingredients__ingredient'
+        )
 
         # 分类过滤
         category = request.query_params.get("category")
@@ -118,7 +120,9 @@ class RecipeDetailView(APIView):
     def get(self, request, recipe_id):
         """获取食谱详情"""
         try:
-            recipe = Recipe.objects.get(id=recipe_id, is_published=True)
+            recipe = Recipe.objects.prefetch_related(
+                'recipe_ingredients__ingredient'
+            ).get(id=recipe_id, is_published=True)
         except Recipe.DoesNotExist:
             return error_response(message="食谱不存在", code=404)
 
@@ -425,7 +429,7 @@ class RecipeRecommendView(APIView):
     """
     推荐食谱视图
 
-    已登录用户：基于用户偏好（过敏食材过滤、饮食偏好匹配、行为历史加权）的个性化推荐
+    已登录用户：混合推荐（协同过滤 + 内容推荐 + 健康目标规则 + Neural CF）
     未登录用户：按热门度排序
     """
 
@@ -433,15 +437,18 @@ class RecipeRecommendView(APIView):
 
     def get(self, request):
         """获取推荐食谱"""
-        queryset = Recipe.objects.filter(is_published=True)
+        from .recommender import HybridRecommender
+        from apps.ingredient.models import Ingredient
+
+        queryset = Recipe.objects.filter(is_published=True).prefetch_related(
+            'recipe_ingredients__ingredient'
+        )
 
         if request.user.is_authenticated:
             profile = getattr(request.user, "userprofile", None)
 
-            # 步骤 A：过滤含过敏食材的食谱
+            # 过滤含过敏食材的食谱
             if profile and profile.allergies:
-                from apps.ingredient.models import Ingredient
-
                 allergen_ids = Ingredient.objects.filter(
                     name__in=profile.allergies
                 ).values_list("id", flat=True)
@@ -450,32 +457,14 @@ class RecipeRecommendView(APIView):
                 ).values_list("recipe_id", flat=True)
                 queryset = queryset.exclude(id__in=exclude_recipe_ids)
 
-            # 取候选集（前 60 条按热门度）
-            recipes = list(queryset.order_by("-views", "-likes")[:60])
-
-            if profile:
-                prefs = set(profile.dietary_preference or [])
-                # 用户喜欢/收藏的食谱分类，用于加权
-                liked_categories = set(
-                    UserBehavior.objects.filter(
-                        user=request.user, behavior_type__in=["like", "favorite"]
-                    ).values_list("recipe__category", flat=True)
-                )
-
-                def score(r):
-                    s = (r.views or 0) * 0.1 + (r.likes or 0) * 2
-                    # 偏好标签匹配加分
-                    if prefs and set(r.tags or []) & prefs:
-                        s += 20
-                    # 同类食谱加分
-                    if liked_categories and r.category in liked_categories:
-                        s += 15
-                    return s
-
-                recipes = sorted(recipes, key=score, reverse=True)
-
+            recipes = HybridRecommender().recommend(
+                user=request.user,
+                queryset=queryset,
+                profile=profile,
+                limit=20,
+            )
             serializer = RecipeListSerializer(
-                recipes[:20], many=True, context={"request": request}
+                recipes, many=True, context={"request": request}
             )
         else:
             # 未登录：简单热门度排序
@@ -518,9 +507,9 @@ class RecipeHotView(APIView):
             limit = min(int(request.query_params.get("limit", 10)), 50)
         except (ValueError, TypeError):
             limit = 10
-        recipes = Recipe.objects.filter(is_published=True).order_by("-views", "-likes")[
-            :limit
-        ]
+        recipes = Recipe.objects.filter(is_published=True).prefetch_related(
+            'recipe_ingredients__ingredient'
+        ).order_by("-views", "-likes")[:limit]
         serializer = RecipeListSerializer(
             recipes, many=True, context={"request": request}
         )
