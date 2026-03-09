@@ -67,6 +67,12 @@ class DietaryLog(models.Model):
         default=0,
         verbose_name='碳水化合物（g）'
     )
+    fiber = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        verbose_name='膳食纤维（g）'
+    )
     meal_type = models.CharField(
         max_length=20,
         choices=MEAL_TYPES,

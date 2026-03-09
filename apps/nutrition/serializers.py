@@ -16,7 +16,7 @@ class DietaryLogSerializer(serializers.ModelSerializer):
         model = DietaryLog
         fields = [
             'id', 'recipe', 'custom_name', 'food_name',
-            'calories', 'protein', 'fat', 'carbohydrate',
+            'calories', 'protein', 'fat', 'carbohydrate', 'fiber',
             'meal_type', 'meal_type_display', 'date', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

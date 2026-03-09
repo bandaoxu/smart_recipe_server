@@ -65,7 +65,8 @@ class NutritionMixin:
     def _get_nutrition(self, obj):
         cache_key = f'__nutrition_{obj.pk}'
         if not hasattr(obj, cache_key):
-            totals = {'calories': 0.0, 'protein': 0.0, 'fat': 0.0, 'carbohydrate': 0.0}
+            totals = {'calories': 0.0, 'protein': 0.0, 'fat': 0.0,
+                      'carbohydrate': 0.0, 'fiber': 0.0}
             for ri in obj.recipe_ingredients.all():
                 ing = ri.ingredient
                 factor = float(ri.quantity) / 100
@@ -85,6 +86,9 @@ class NutritionMixin:
 
     def get_total_carbohydrate(self, obj):
         return self._get_nutrition(obj)['carbohydrate']
+
+    def get_total_fiber(self, obj):
+        return self._get_nutrition(obj)['fiber']
 
 
 class RecipeListSerializer(NutritionMixin, serializers.ModelSerializer):
@@ -107,6 +111,7 @@ class RecipeListSerializer(NutritionMixin, serializers.ModelSerializer):
     total_protein      = serializers.SerializerMethodField()
     total_fat          = serializers.SerializerMethodField()
     total_carbohydrate = serializers.SerializerMethodField()
+    total_fiber        = serializers.SerializerMethodField()
 
     class Meta:
         model = Recipe
@@ -114,7 +119,7 @@ class RecipeListSerializer(NutritionMixin, serializers.ModelSerializer):
             'id', 'name', 'cover_image', 'author', 'difficulty', 'difficulty_display',
             'cooking_time', 'servings', 'category', 'category_display',
             'cuisine_type', 'cuisine_type_display', 'tags',
-            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate',
+            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate', 'total_fiber',
             'views', 'likes', 'favorites', 'created_at'
         ]
         read_only_fields = ['id', 'views', 'likes', 'favorites', 'created_at']
@@ -156,6 +161,7 @@ class RecipeDetailSerializer(NutritionMixin, serializers.ModelSerializer):
     total_protein      = serializers.SerializerMethodField()
     total_fat          = serializers.SerializerMethodField()
     total_carbohydrate = serializers.SerializerMethodField()
+    total_fiber        = serializers.SerializerMethodField()
 
     class Meta:
         model = Recipe
@@ -163,7 +169,7 @@ class RecipeDetailSerializer(NutritionMixin, serializers.ModelSerializer):
             'id', 'name', 'cover_image', 'author', 'difficulty', 'difficulty_display',
             'cooking_time', 'servings', 'category', 'category_display',
             'cuisine_type', 'cuisine_type_display', 'tags',
-            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate',
+            'total_calories', 'total_protein', 'total_fat', 'total_carbohydrate', 'total_fiber',
             'description', 'views', 'likes', 'favorites', 'is_published',
             'ingredients', 'steps', 'is_liked', 'is_favorited', 'created_at', 'updated_at'
         ]

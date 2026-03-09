@@ -231,6 +231,7 @@ class IngredientRecognizeView(APIView):
                         'protein': float(ing.protein) if ing else 0,
                         'fat': float(ing.fat) if ing else 0,
                         'carbohydrate': float(ing.carbohydrate) if ing else 0,
+                        'fiber': float(ing.fiber) if ing else 0,
                     },
                 })
         else:
@@ -254,6 +255,7 @@ class IngredientRecognizeView(APIView):
                             'protein': float(ing.protein) if ing.protein else 0,
                             'fat': float(ing.fat) if ing.fat else 0,
                             'carbohydrate': float(ing.carbohydrate) if ing.carbohydrate else 0,
+                            'fiber': float(ing.fiber) if ing.fiber else 0,
                         },
                     }
                     for ing, conf in zip(picked, confidences)
@@ -261,9 +263,9 @@ class IngredientRecognizeView(APIView):
             else:
                 ingredients = [
                     {'name': '西红柿', 'confidence': 0.95, 'ingredient_id': None,
-                     'nutrition': {'calories': 18, 'protein': 0.9, 'fat': 0.2, 'carbohydrate': 3.9}},
+                     'nutrition': {'calories': 18, 'protein': 0.9, 'fat': 0.2, 'carbohydrate': 3.9, 'fiber': 1.2}},
                     {'name': '鸡蛋', 'confidence': 0.88, 'ingredient_id': None,
-                     'nutrition': {'calories': 144, 'protein': 12.7, 'fat': 9.0, 'carbohydrate': 1.5}},
+                     'nutrition': {'calories': 144, 'protein': 12.7, 'fat': 9.0, 'carbohydrate': 1.5, 'fiber': 0}},
                 ]
 
         recognition_result = {'ingredients': ingredients, 'total_items': len(ingredients)}
