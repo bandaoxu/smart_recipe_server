@@ -140,3 +140,31 @@ class ShoppingList(models.Model):
         """
         self.is_purchased = False
         self.save(update_fields=['is_purchased'])
+
+
+class ShoppingListShare(models.Model):
+    """购物清单分享 Token"""
+
+    PERMISSION_CHOICES = [('read', '只读'), ('edit', '可编辑')]
+
+    token      = models.CharField(max_length=64, unique=True, db_index=True, verbose_name='分享 Token')
+    owner      = models.ForeignKey(User, on_delete=models.CASCADE,
+                                   related_name='shopping_shares', verbose_name='分享者')
+    permission = models.CharField(max_length=10, choices=PERMISSION_CHOICES,
+                                  default='read', verbose_name='权限')
+    expires_at = models.DateTimeField(verbose_name='过期时间')
+    is_active  = models.BooleanField(default=True, verbose_name='是否有效')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        db_table = 'shopping_list_share'
+        verbose_name = '购物清单分享'
+        verbose_name_plural = '购物清单分享'
+        ordering = ['-created_at']
+
+    def is_valid(self):
+        from django.utils import timezone
+        return self.is_active and self.expires_at > timezone.now()
+
+    def __str__(self):
+        return f"{self.owner.username} [{self.permission}] expires {self.expires_at:%Y-%m-%d}"

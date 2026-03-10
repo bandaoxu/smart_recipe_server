@@ -7,13 +7,20 @@
     - ShoppingListView: 购物清单列表、创建、删除
     - ShoppingListUpdateView: 更新购物清单项（标记购买状态等）
     - ShoppingListGenerateView: 基于食谱生成购物清单
+    - CreateShareView: 创建分享链接
+    - RevokeShareView: 撤销分享链接
+    - SharedListView: 通过 Token 查看分享清单
+    - SharedItemUpdateView: 通过 Token 更新分享清单中的购买状态
 """
 
+import uuid
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from common.response import success_response, error_response
-from .models import ShoppingList
+from .models import ShoppingList, ShoppingListShare
 from .serializers import ShoppingListSerializer
 from apps.recipe.models import Recipe
 
@@ -165,4 +172,119 @@ class ShoppingListGenerateView(APIView):
         return success_response(
             data={'added_count': added_count, 'total_ingredients': recipe_ingredients.count()},
             message='生成购物清单成功'
+        )
+
+
+class CreateShareView(APIView):
+    """创建购物清单分享 Token — POST /api/shopping-list/share/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        permission = request.data.get('permission', 'read')
+        if permission not in ('read', 'edit'):
+            return error_response(message='permission 必须为 read 或 edit', code=400)
+
+        days = int(request.data.get('days', 7))
+        if days not in (1, 3, 7, 30):
+            days = 7
+
+        token = uuid.uuid4().hex
+        share = ShoppingListShare.objects.create(
+            token=token,
+            owner=request.user,
+            permission=permission,
+            expires_at=timezone.now() + timedelta(days=days),
+        )
+        return success_response(
+            data={
+                'token': share.token,
+                'permission': share.permission,
+                'expires_at': share.expires_at.isoformat(),
+                'share_path': f'/pages/shopping/share?token={share.token}',
+            },
+            message='分享链接创建成功'
+        )
+
+
+class RevokeShareView(APIView):
+    """撤销分享 Token — DELETE /api/shopping-list/share/<token>/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, token):
+        try:
+            share = ShoppingListShare.objects.get(token=token, owner=request.user)
+        except ShoppingListShare.DoesNotExist:
+            return error_response(message='分享不存在', code=404)
+        share.is_active = False
+        share.save(update_fields=['is_active'])
+        return success_response(message='分享已撤销')
+
+
+class SharedListView(APIView):
+    """通过 Token 查看分享的购物清单 — GET /api/shopping-list/shared/<token>/"""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        try:
+            share = ShoppingListShare.objects.select_related('owner').get(token=token)
+        except ShoppingListShare.DoesNotExist:
+            return error_response(message='链接无效', code=404)
+
+        if not share.is_valid():
+            return error_response(message='链接已失效或已过期', code=403)
+
+        items = ShoppingList.objects.filter(user=share.owner).select_related('ingredient')
+        serializer = ShoppingListSerializer(items, many=True)
+
+        owner_profile = getattr(share.owner, 'userprofile', None)
+        owner_name = (owner_profile.nickname if owner_profile else None) or share.owner.username
+
+        return success_response(
+            data={
+                'items': serializer.data,
+                'meta': {
+                    'owner_name': owner_name,
+                    'permission': share.permission,
+                    'expires_at': share.expires_at.isoformat(),
+                },
+            },
+            message='获取成功'
+        )
+
+
+class SharedItemUpdateView(APIView):
+    """通过 Token 更新分享清单中的购买状态 — PATCH /api/shopping-list/shared/<token>/<item_id>/"""
+
+    permission_classes = [AllowAny]
+
+    def patch(self, request, token, item_id):
+        try:
+            share = ShoppingListShare.objects.get(token=token)
+        except ShoppingListShare.DoesNotExist:
+            return error_response(message='链接无效', code=404)
+
+        if not share.is_valid():
+            return error_response(message='链接已失效或已过期', code=403)
+
+        if share.permission != 'edit':
+            return error_response(message='此分享链接为只读，不可修改', code=403)
+
+        try:
+            item = ShoppingList.objects.get(id=item_id, user=share.owner)
+        except ShoppingList.DoesNotExist:
+            return error_response(message='清单项不存在', code=404)
+
+        # 仅允许更新 is_purchased 字段
+        is_purchased = request.data.get('is_purchased')
+        if is_purchased is None:
+            return error_response(message='缺少 is_purchased 参数', code=400)
+
+        item.is_purchased = bool(is_purchased)
+        item.save(update_fields=['is_purchased'])
+        return success_response(
+            data={'id': item.id, 'is_purchased': item.is_purchased},
+            message='更新成功'
         )
