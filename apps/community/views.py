@@ -122,8 +122,11 @@ class FoodPostsView(APIView):
         return [AllowAny()]
 
     def get(self, request):
-        """获取动态列表"""
+        """获取动态列表（支持 ?author=<user_id> 过滤）"""
         queryset = FoodPost.objects.all()
+        author_id = request.query_params.get('author')
+        if author_id:
+            queryset = queryset.filter(user_id=author_id)
 
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(queryset, request)
@@ -211,6 +214,63 @@ class RecipeCommentsView(APIView):
         return error_response(message="评论失败", data=serializer.errors, code=400)
 
 
+class CommentDeleteView(APIView):
+    """删除评论（仅评论作者可操作）"""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, comment_id):
+        try:
+            comment = Comment.objects.get(id=comment_id, user=request.user)
+        except Comment.DoesNotExist:
+            return error_response(message='评论不存在或无权删除', code=404)
+
+        target_type = comment.target_type
+        target_id = comment.target_id
+        is_root = comment.parent is None
+        comment.delete()
+
+        # 删除根评论时更新动态的 comments_count
+        if is_root and target_type == 'post':
+            post = FoodPost.objects.filter(id=target_id).first()
+            if post:
+                post.comments_count = Comment.objects.filter(
+                    target_type='post', target_id=target_id, parent=None
+                ).count()
+                post.save()
+
+        return success_response(message='删除成功')
+
+
+class FoodPostDeleteView(APIView):
+    """删除动态 — DELETE /api/community/posts/<post_id>/delete/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, post_id):
+        try:
+            post = FoodPost.objects.get(id=post_id, user=request.user)
+        except FoodPost.DoesNotExist:
+            return error_response(message='动态不存在或无权操作', code=404)
+        post.delete()
+        return success_response(message='删除成功')
+
+
+class FoodPostUpdateView(APIView):
+    """编辑动态 — PATCH /api/community/posts/<post_id>/update/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, post_id):
+        try:
+            post = FoodPost.objects.get(id=post_id, user=request.user)
+        except FoodPost.DoesNotExist:
+            return error_response(message='动态不存在或无权操作', code=404)
+        serializer = FoodPostSerializer(post, data=request.data,
+                                        partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(data=serializer.data, message='更新成功')
+        return error_response(message='更新失败', data=serializer.errors, code=400)
 class PostCommentsView(APIView):
     """动态评论视图（GET 获取评论列表，POST 发表评论）"""
 
