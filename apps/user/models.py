@@ -286,3 +286,18 @@ class Follow(models.Model):
 
     def __str__(self):
         return f'{self.follower.username} → {self.following.username}'
+
+
+# ── 信号：新建 User 时自动创建 UserProfile ──────────────────────────────────
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+@receiver(post_save, sender=User)
+def auto_create_user_profile(sender, instance, created, **kwargs):
+    """
+    每当创建新 User（含 createsuperuser、admin 界面新建）时，
+    自动创建对应的 UserProfile，避免 userprofile.RelatedObjectDoesNotExist。
+    """
+    if created:
+        UserProfile.objects.get_or_create(user=instance)

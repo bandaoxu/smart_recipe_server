@@ -55,10 +55,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
-    # 计算当前是否应季
-    is_seasonal_now = serializers.SerializerMethodField()
-
-    # 营养成分摘要（计算字段）
+    # 计算营养成分摘要（计算字段）
     nutrition_summary = serializers.SerializerMethodField()
 
     class Meta:
@@ -66,22 +63,9 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'category', 'category_display', 'image_url',
             'calories', 'protein', 'fat', 'carbohydrate', 'fiber',
-            'vitamin', 'description', 'season', 'is_seasonal_now',
-            'nutrition_summary', 'created_at'
+            'description', 'nutrition_summary', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
-
-    def get_is_seasonal_now(self, obj):
-        """
-        获取当前是否应季
-
-        参数：
-            obj: Ingredient 实例
-
-        返回：
-            bool: True 表示应季，False 表示不应季
-        """
-        return obj.is_seasonal()
 
     def get_nutrition_summary(self, obj):
         """
@@ -123,27 +107,13 @@ class IngredientListSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
-    is_seasonal_now = serializers.SerializerMethodField()
-
     class Meta:
         model = Ingredient
         fields = [
             'id', 'name', 'category', 'category_display',
-            'image_url', 'calories', 'is_seasonal_now'
+            'image_url', 'calories'
         ]
         read_only_fields = ['id']
-
-    def get_is_seasonal_now(self, obj):
-        """
-        获取当前是否应季
-
-        参数：
-            obj: Ingredient 实例
-
-        返回：
-            bool: True 表示应季，False 表示不应季
-        """
-        return obj.is_seasonal()
 
 
 class IngredientRecognitionSerializer(serializers.ModelSerializer):
@@ -371,7 +341,7 @@ class IngredientCreateSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'category', 'image_url',
             'calories', 'protein', 'fat', 'carbohydrate', 'fiber',
-            'vitamin', 'description', 'season'
+            'description'
         ]
 
     def validate_name(self, value):
@@ -389,26 +359,4 @@ class IngredientCreateSerializer(serializers.ModelSerializer):
         """
         if Ingredient.objects.filter(name=value).exists():
             raise serializers.ValidationError('该食材名称已存在')
-        return value
-
-    def validate_season(self, value):
-        """
-        验证应季月份格式
-
-        参数：
-            value: 应季月份列表
-
-        返回：
-            list: 验证通过的月份列表
-
-        异常：
-            ValidationError: 月份格式不正确
-        """
-        if not isinstance(value, list):
-            raise serializers.ValidationError('应季月份必须是列表格式')
-
-        for month in value:
-            if not isinstance(month, int) or month < 1 or month > 12:
-                raise serializers.ValidationError('月份必须是 1-12 之间的整数')
-
         return value

@@ -126,10 +126,14 @@ class RecipeListSerializer(NutritionMixin, serializers.ModelSerializer):
 
     def get_author(self, obj):
         """获取作者信息"""
+        try:
+            nickname = obj.author.userprofile.nickname or obj.author.username
+        except Exception:
+            nickname = obj.author.username
         return {
             'id': obj.author.id,
             'username': obj.author.username,
-            'nickname': getattr(obj.author.userprofile, 'nickname', obj.author.username)
+            'nickname': nickname
         }
 
 
@@ -177,10 +181,14 @@ class RecipeDetailSerializer(NutritionMixin, serializers.ModelSerializer):
 
     def get_author(self, obj):
         """获取作者信息"""
+        try:
+            nickname = obj.author.userprofile.nickname or obj.author.username
+        except Exception:
+            nickname = obj.author.username
         return {
             'id': obj.author.id,
             'username': obj.author.username,
-            'nickname': getattr(obj.author.userprofile, 'nickname', obj.author.username)
+            'nickname': nickname
         }
 
     def get_is_liked(self, obj):

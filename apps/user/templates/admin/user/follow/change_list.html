@@ -1,0 +1,75 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content_title %}
+{{ block.super }}
+
+{# 关注统计面板 #}
+<div style="margin: 16px 0; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+  <h3 style="margin: 0 0 14px 0; font-size: 14px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+    🔗 关注关系统计（关注总数：{{ total_follows }}）
+  </h3>
+
+  <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+    {# 关注数排行 - 主动关注他人最多 #}
+    <div style="flex: 1; min-width: 200px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">👣 关注数 Top 10（关注最多的用户）</h4>
+      {% if top_following %}
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f2f2f2;">
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; width: 36px;">排名</th>
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd;">用户名</th>
+            <th style="padding: 5px 8px; text-align: right; border: 1px solid #ddd; width: 60px;">关注数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in top_following %}
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: center; color: {% if forloop.counter <= 3 %}#e74c3c{% else %}#666{% endif %};">
+              {{ forloop.counter }}
+            </td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; color: #417690;">{{ item.follower__username }}</td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #417690;">{{ item.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: #999; font-size: 13px;">暂无数据</p>
+      {% endif %}
+    </div>
+
+    {# 粉丝数排行 - 被关注最多 #}
+    <div style="flex: 1; min-width: 200px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">⭐ 粉丝数 Top 10（被关注最多的用户）</h4>
+      {% if top_followed %}
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f2f2f2;">
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd; width: 36px;">排名</th>
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd;">用户名</th>
+            <th style="padding: 5px 8px; text-align: right; border: 1px solid #ddd; width: 60px;">粉丝数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in top_followed %}
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: center; color: {% if forloop.counter <= 3 %}#f39c12{% else %}#666{% endif %};">
+              {{ forloop.counter }}
+            </td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; color: #417690;">{{ item.following__username }}</td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #f39c12;">{{ item.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: #999; font-size: 13px;">暂无数据</p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

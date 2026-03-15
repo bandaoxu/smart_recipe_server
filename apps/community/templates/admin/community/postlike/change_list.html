@@ -1,0 +1,45 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content_title %}
+{{ block.super }}
+
+{# 热门动态统计面板 #}
+{% if hot_posts %}
+<div style="margin: 16px 0; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+  <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+    ❤️ 热门动态 Top 10（按点赞数）
+  </h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="background: #f2f2f2;">
+        <th style="padding: 6px 10px; text-align: left; border: 1px solid #ddd; width: 40px;">排名</th>
+        <th style="padding: 6px 10px; text-align: left; border: 1px solid #ddd; width: 120px;">发布用户</th>
+        <th style="padding: 6px 10px; text-align: left; border: 1px solid #ddd;">内容预览</th>
+        <th style="padding: 6px 10px; text-align: right; border: 1px solid #ddd; width: 80px;">点赞数</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for post in hot_posts %}
+      <tr>
+        <td style="padding: 6px 10px; border: 1px solid #ddd; text-align: center; color: {% if forloop.counter <= 3 %}#e74c3c{% else %}#666{% endif %}; font-weight: {% if forloop.counter <= 3 %}bold{% else %}normal{% endif %};">
+          {{ forloop.counter }}
+        </td>
+        <td style="padding: 6px 10px; border: 1px solid #ddd; color: #417690;">
+          {{ post.post__user__username }}
+        </td>
+        <td style="padding: 6px 10px; border: 1px solid #ddd; color: #555;">
+          <a href="{% url 'admin:community_foodpost_change' post.post__id %}" style="color: #417690; text-decoration: none;">
+            {{ post.content_preview }}
+          </a>
+        </td>
+        <td style="padding: 6px 10px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #e74c3c;">
+          {{ post.total }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

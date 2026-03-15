@@ -1,0 +1,92 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content_title %}
+{{ block.super }}
+
+{# 用户统计面板 #}
+<div style="margin: 16px 0; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+  <h3 style="margin: 0 0 14px 0; font-size: 14px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+    👥 用户统计概览
+  </h3>
+
+  {# 总用户数 #}
+  <div style="margin-bottom: 16px; padding: 10px 16px; background: #f0f7ff; border: 1px solid #b8d4f0; border-radius: 4px; display: inline-block; min-width: 160px; text-align: center;">
+    <div style="font-size: 28px; font-weight: bold; color: #417690;">{{ total_users }}</div>
+    <div style="font-size: 12px; color: #666; margin-top: 4px;">用户总数</div>
+  </div>
+
+  <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px;">
+
+    {# 健康目标分布 #}
+    <div style="flex: 1; min-width: 200px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">🎯 健康目标分布</h4>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f2f2f2;">
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd;">目标</th>
+            <th style="padding: 5px 8px; text-align: right; border: 1px solid #ddd;">人数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in health_goal_stats %}
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #ddd;">{{ item.label }}</td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #417690;">{{ item.count }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" style="padding: 5px 8px; border: 1px solid #ddd; color: #999;">暂无数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# 性别分布 #}
+    <div style="flex: 1; min-width: 160px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">⚥ 性别分布</h4>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f2f2f2;">
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd;">性别</th>
+            <th style="padding: 5px 8px; text-align: right; border: 1px solid #ddd;">人数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in gender_stats %}
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #ddd;">{{ item.label }}</td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #417690;">{{ item.count }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" style="padding: 5px 8px; border: 1px solid #ddd; color: #999;">暂无数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# 近7日注册趋势 #}
+    <div style="flex: 2; min-width: 220px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #555;">📅 近7日注册趋势</h4>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f2f2f2;">
+            <th style="padding: 5px 8px; text-align: left; border: 1px solid #ddd;">日期</th>
+            <th style="padding: 5px 8px; text-align: right; border: 1px solid #ddd;">新增用户</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent_registrations %}
+          <tr>
+            <td style="padding: 5px 8px; border: 1px solid #ddd;">{{ item.reg_date }}</td>
+            <td style="padding: 5px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #27ae60;">+{{ item.count }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" style="padding: 5px 8px; border: 1px solid #ddd; color: #999;">近7日无新增</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

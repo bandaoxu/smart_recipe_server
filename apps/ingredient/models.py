@@ -143,30 +143,12 @@ class Ingredient(models.Model):
         help_text='每 100g 食材的膳食纤维含量（克）'
     )
 
-    # 维生素含量（JSON 格式）
-    # 例如：{"C": 19, "A": 900, "E": 0.6}
-    vitamin = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name='维生素',
-        help_text='各种维生素的含量（JSON 格式，如：{"C": 19, "A": 900}）'
-    )
-
     # 食材描述
     description = models.TextField(
         blank=True,
         null=True,
         verbose_name='描述',
         help_text='食材的详细描述（功效、特点等）'
-    )
-
-    # 应季月份（JSON 格式，存储月份数组）
-    # 例如：[5, 6, 7, 8, 9] 表示 5-9 月应季
-    season = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name='应季月份',
-        help_text='食材应季的月份列表（如：[5, 6, 7, 8]）'
     )
 
     # 创建时间
@@ -193,32 +175,6 @@ class Ingredient(models.Model):
             str: 食材名称
         """
         return self.name
-
-    def is_seasonal(self, month=None):
-        """
-        判断食材是否应季
-
-        参数：
-            month (int, optional): 月份（1-12），如果不传则使用当前月份
-
-        返回：
-            bool: True 表示应季，False 表示不应季
-
-        使用示例：
-            ingredient = Ingredient.objects.get(name='西红柿')
-            if ingredient.is_seasonal():
-                print('当前是应季食材')
-            if ingredient.is_seasonal(month=6):
-                print('6月是应季食材')
-        """
-        if not self.season:
-            return False
-
-        if month is None:
-            import datetime
-            month = datetime.datetime.now().month
-
-        return month in self.season
 
     def get_nutrition_summary(self):
         """
