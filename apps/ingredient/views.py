@@ -506,8 +506,8 @@ class IngredientSeasonalView(APIView):
             import datetime
             month = datetime.datetime.now().month
 
-        # 查询应季食材
-        queryset = Ingredient.objects.filter(season__contains=month)
+        # season 字段已移除，返回全部食材作为应季食材
+        queryset = Ingredient.objects.all()
 
         # 分页
         paginator = StandardResultsSetPagination()

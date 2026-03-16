@@ -225,12 +225,12 @@ class UserRegisterSerializer(serializers.Serializer):
         # 创建用户（使用 create_user 方法会自动加密密码）
         user = User.objects.create_user(**validated_data)
 
-        # 创建用户档案
-        UserProfile.objects.create(
-            user=user,
-            nickname=nickname or user.username,  # 如果没有昵称，使用用户名
-            phone=phone
-        )
+        # 更新用户档案（post_save 信号已自动创建了空档案，此处补充昵称/手机号）
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.nickname = nickname or user.username
+        if phone:
+            profile.phone = phone
+        profile.save()
 
         return user
 

@@ -195,7 +195,6 @@ class Ingredient(models.Model):
             'fat': float(self.fat),
             'carbohydrate': float(self.carbohydrate),
             'fiber': float(self.fiber),
-            'vitamin': self.vitamin
         }
 
     def calculate_nutrition(self, quantity_grams):
