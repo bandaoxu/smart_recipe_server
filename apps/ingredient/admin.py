@@ -134,6 +134,10 @@ class IngredientRecognitionAdmin(admin.ModelAdmin):
 
     get_recognized_count.short_description = "识别数量"
 
+    def has_add_permission(self, request):
+        """禁止手动添加食材识别记录，应由系统自动创建"""
+        return False
+
     def changelist_view(self, request, extra_context=None):
         """注入识别统计数据"""
         total = IngredientRecognition.objects.count()

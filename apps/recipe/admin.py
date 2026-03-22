@@ -256,7 +256,11 @@ class UserBehaviorAdmin(admin.ModelAdmin):
     用户行为管理类
 
     配置用户行为在 Django Admin 后台的显示和管理方式。
+    列表页顶部显示行为类型统计和热门食谱排行。
     """
+
+    # 自定义列表页模板（用于显示统计面板）
+    change_list_template = "admin/recipe/userbehavior/change_list.html"
 
     # 使用自动完成字段代替下拉选择框
     autocomplete_fields = ["user", "recipe"]
@@ -273,6 +277,9 @@ class UserBehaviorAdmin(admin.ModelAdmin):
     # 搜索字段
     search_fields = ["user__username", "recipe__name"]
 
+    # 只读字段
+    readonly_fields = ["user", "recipe", "behavior_type", "created_at"]
+
     # 每页显示数量
     list_per_page = 50
 
@@ -284,3 +291,34 @@ class UserBehaviorAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user", "recipe")
+
+    def has_add_permission(self, request):
+        """禁止手动添加用户行为记录，应由系统自动创建"""
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        """注入行为统计数据到列表页模板上下文"""
+        # 按行为类型统计数量
+        behavior_stats = list(
+            UserBehavior.objects.values("behavior_type")
+            .annotate(count=Count("id"))
+            .order_by("behavior_type")
+        )
+        behavior_type_map = dict(UserBehavior.BEHAVIOR_TYPE_CHOICES)
+        # 为每条统计添加中文名称
+        for item in behavior_stats:
+            item["type_display"] = behavior_type_map.get(
+                item["behavior_type"], item["behavior_type"]
+            )
+
+        # 热门食谱 Top 10（按行为总数）
+        hot_recipes = list(
+            UserBehavior.objects.values("recipe__id", "recipe__name")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:10]
+        )
+
+        extra_context = extra_context or {}
+        extra_context["behavior_stats"] = behavior_stats
+        extra_context["hot_recipes"] = hot_recipes
+        return super().changelist_view(request, extra_context=extra_context)

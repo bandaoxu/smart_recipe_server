@@ -109,7 +109,7 @@ class ShoppingListShareAdmin(admin.ModelAdmin):
         "owner",
         "permission",
         "expires_at",
-        "is_active",
+        "get_status_display",
         "created_at",
     ]
 
@@ -136,6 +136,23 @@ class ShoppingListShareAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("owner")
+
+    def has_add_permission(self, request):
+        """禁止手动添加购物清单分享记录，应由 API 自动创建"""
+        return False
+
+    def get_status_display(self, obj):
+        """显示分享链接的实际状态"""
+        from django.utils import timezone
+
+        if not obj.is_active:
+            return "已撤销"
+        elif obj.expires_at < timezone.now():
+            return "已过期"
+        else:
+            return "有效"
+
+    get_status_display.short_description = "状态"
 
     def revoke_shares(self, request, queryset):
         count = queryset.update(is_active=False)
