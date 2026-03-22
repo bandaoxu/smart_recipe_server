@@ -23,6 +23,9 @@ class FoodPostAdmin(admin.ModelAdmin):
     # 使用自动完成字段代替下拉选择框
     autocomplete_fields = ["user", "recipe"]
 
+    # 自定义编辑页模板（图片上传组件）
+    change_form_template = "admin/community/foodpost/change_form.html"
+
     # 列表页显示字段
     list_display = [
         "id",

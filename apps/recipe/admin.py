@@ -66,6 +66,9 @@ class RecipeAdmin(ExportCsvMixin, admin.ModelAdmin):
     # 使用自动完成字段代替下拉选择框
     autocomplete_fields = ["author"]
 
+    # 自定义编辑页模板（封面图 + 步骤图上传组件）
+    change_form_template = "admin/recipe/recipe/change_form.html"
+
     # 内联编辑食材和步骤
     inlines = [RecipeIngredientInline, CookingStepInline]
 
@@ -77,6 +80,11 @@ class RecipeAdmin(ExportCsvMixin, admin.ModelAdmin):
         "category",
         "difficulty",
         "cooking_time",
+        "get_total_calories",
+        "get_total_protein",
+        "get_total_fat",
+        "get_total_carbohydrate",
+        "get_total_fiber",
         "views",
         "likes",
         "favorites",
@@ -106,13 +114,37 @@ class RecipeAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ["make_published", "make_unpublished", "export_as_csv"]
 
     # 只读字段
-    readonly_fields = ["views", "likes", "favorites", "created_at", "updated_at"]
+    readonly_fields = [
+        "views",
+        "likes",
+        "favorites",
+        "created_at",
+        "updated_at",
+        "get_total_calories",
+        "get_total_protein",
+        "get_total_fat",
+        "get_total_carbohydrate",
+        "get_total_fiber",
+    ]
 
     # 字段分组
     fieldsets = [
         ("基本信息", {"fields": ["name", "cover_image", "author", "description"]}),
         ("分类信息", {"fields": ["category", "cuisine_type", "difficulty", "tags"]}),
-        ("详细信息", {"fields": ["cooking_time", "servings", "total_calories"]}),
+        (
+            "详细信息",
+            {
+                "fields": [
+                    "cooking_time",
+                    "servings",
+                    "get_total_calories",
+                    "get_total_protein",
+                    "get_total_fat",
+                    "get_total_carbohydrate",
+                    "get_total_fiber",
+                ]
+            },
+        ),
         (
             "统计信息",
             {"fields": ["views", "likes", "favorites"], "classes": ["collapse"]},
@@ -131,7 +163,79 @@ class RecipeAdmin(ExportCsvMixin, admin.ModelAdmin):
     ordering = ["-created_at"]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("author")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("author")
+            .prefetch_related("recipe_ingredients__ingredient")
+        )
+
+    def _calc_nutrition(self, obj):
+        """
+        计算食谱的营养成分
+
+        参数：
+            obj: Recipe 实例
+
+        返回：
+            dict: 包含营养成分的字典
+        """
+        cache_key = "__admin_nutrition"
+        if hasattr(obj, cache_key):
+            return getattr(obj, cache_key)
+
+        totals = {
+            "calories": 0.0,
+            "protein": 0.0,
+            "fat": 0.0,
+            "carbohydrate": 0.0,
+            "fiber": 0.0,
+        }
+
+        for ri in obj.recipe_ingredients.all():
+            ing = ri.ingredient
+            factor = float(ri.quantity) / 100
+            for key in totals:
+                totals[key] += float(getattr(ing, key) or 0) * factor
+
+        result = {k: round(v, 1) for k, v in totals.items()}
+        setattr(obj, cache_key, result)
+        return result
+
+    def get_total_calories(self, obj):
+        """获取总卡路里"""
+        nutrition = self._calc_nutrition(obj)
+        return nutrition["calories"]
+
+    get_total_calories.short_description = "卡路里(千卡)"
+
+    def get_total_protein(self, obj):
+        """获取总蛋白质"""
+        nutrition = self._calc_nutrition(obj)
+        return nutrition["protein"]
+
+    get_total_protein.short_description = "蛋白质(g)"
+
+    def get_total_fat(self, obj):
+        """获取总脂肪"""
+        nutrition = self._calc_nutrition(obj)
+        return nutrition["fat"]
+
+    get_total_fat.short_description = "脂肪(g)"
+
+    def get_total_carbohydrate(self, obj):
+        """获取总碳水化合物"""
+        nutrition = self._calc_nutrition(obj)
+        return nutrition["carbohydrate"]
+
+    get_total_carbohydrate.short_description = "碳水(g)"
+
+    def get_total_fiber(self, obj):
+        """获取总膳食纤维"""
+        nutrition = self._calc_nutrition(obj)
+        return nutrition["fiber"]
+
+    get_total_fiber.short_description = "纤维(g)"
 
     def make_published(self, request, queryset):
         count = queryset.update(is_published=True)
@@ -151,12 +255,8 @@ class UserBehaviorAdmin(admin.ModelAdmin):
     """
     用户行为管理类
 
-    配置用户行为在 Django Admin 后台的显示和操作方式。
-    列表页顶部显示行为类型统计和热门食谱排行。
+    配置用户行为在 Django Admin 后台的显示和管理方式。
     """
-
-    # 自定义列表页模板（用于显示统计面板）
-    change_list_template = "admin/recipe/userbehavior/change_list.html"
 
     # 使用自动完成字段代替下拉选择框
     autocomplete_fields = ["user", "recipe"]
@@ -173,9 +273,6 @@ class UserBehaviorAdmin(admin.ModelAdmin):
     # 搜索字段
     search_fields = ["user__username", "recipe__name"]
 
-    # 只读字段
-    readonly_fields = ["user", "recipe", "behavior_type", "created_at"]
-
     # 每页显示数量
     list_per_page = 50
 
@@ -187,30 +284,3 @@ class UserBehaviorAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user", "recipe")
-
-    def changelist_view(self, request, extra_context=None):
-        """注入行为统计数据到列表页模板上下文"""
-        # 按行为类型统计数量
-        behavior_stats = list(
-            UserBehavior.objects.values("behavior_type")
-            .annotate(count=Count("id"))
-            .order_by("behavior_type")
-        )
-        behavior_type_map = dict(UserBehavior.BEHAVIOR_TYPE_CHOICES)
-        # 为每条统计添加中文名称
-        for item in behavior_stats:
-            item["type_display"] = behavior_type_map.get(
-                item["behavior_type"], item["behavior_type"]
-            )
-
-        # 热门食谱 Top 10（按行为总数）
-        hot_recipes = list(
-            UserBehavior.objects.values("recipe__id", "recipe__name")
-            .annotate(total=Count("id"))
-            .order_by("-total")[:10]
-        )
-
-        extra_context = extra_context or {}
-        extra_context["behavior_stats"] = behavior_stats
-        extra_context["hot_recipes"] = hot_recipes
-        return super().changelist_view(request, extra_context=extra_context)

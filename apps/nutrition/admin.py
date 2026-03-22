@@ -82,3 +82,34 @@ class DietaryLogAdmin(ExportCsvMixin, admin.ModelAdmin):
         return obj.recipe.name if obj.recipe else obj.custom_name
 
     get_food_name.short_description = "食物名称"
+
+    def save_model(self, request, obj, form, change):
+        """
+        重写保存方法：如果关联了食谱，自动计算并填充营养成分
+        """
+        if obj.recipe:
+            from apps.recipe.models import RecipeIngredient
+
+            ris = RecipeIngredient.objects.filter(recipe=obj.recipe).select_related(
+                "ingredient"
+            )
+            totals = {
+                "calories": 0.0,
+                "protein": 0.0,
+                "fat": 0.0,
+                "carbohydrate": 0.0,
+                "fiber": 0.0,
+            }
+            for ri in ris:
+                ing = ri.ingredient
+                factor = float(ri.quantity) / 100
+                for k in totals:
+                    totals[k] += float(getattr(ing, k) or 0) * factor
+
+            obj.calories = round(totals["calories"], 2)
+            obj.protein = round(totals["protein"], 2)
+            obj.fat = round(totals["fat"], 2)
+            obj.carbohydrate = round(totals["carbohydrate"], 2)
+            obj.fiber = round(totals["fiber"], 2)
+
+        super().save_model(request, obj, form, change)

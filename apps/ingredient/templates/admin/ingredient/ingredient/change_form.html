@@ -1,0 +1,168 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+<style>
+.img-upload-widget {
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  max-width: 480px;
+}
+.img-upload-widget .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.img-upload-widget input[type=text] {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.img-upload-widget button {
+  padding: 4px 12px;
+  background: #417690;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.img-upload-widget button:hover { background: #2c5570; }
+.img-upload-widget button:disabled { background: #aaa; cursor: not-allowed; }
+.img-thumb-single {
+  margin-top: 10px;
+  position: relative;
+  display: inline-block;
+  width: 120px;
+  height: 120px;
+}
+.img-thumb-single a img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  display: block;
+}
+.img-thumb-single .img-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(200,50,50,0.85);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.img-thumb-single .img-del:hover { background: rgba(180,20,20,1); }
+</style>
+
+<script>
+// @ts-nocheck
+(function ($) {
+  "use strict";
+
+  var UPLOAD_URL = "{% url 'admin_upload_image' %}";
+
+  function getCSRF() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  /* ── 单图 URLField Widget ── */
+  function initSingleImageWidget(fieldId) {
+    var $input = $('#' + fieldId);
+    if (!$input.length) return;
+
+    function getUrl() { return $input.val().trim(); }
+    function setUrl(url) {
+      $input.val(url);
+      renderPreview(url);
+    }
+
+    /* 组件容器 */
+    var $widget = $([
+      '<div class="img-upload-widget">',
+        '<div class="row">',
+          '<input type="file" id="', fieldId, '_file" accept="image/*" style="flex:1">',
+          '<button type="button" id="', fieldId, '_upload_btn">上传图片</button>',
+        '</div>',
+        '<div class="row">',
+          '<input type="text" id="', fieldId, '_url_input" placeholder="输入图片 URL…">',
+          '<button type="button" id="', fieldId, '_add_btn">应用</button>',
+        '</div>',
+        '<div id="', fieldId, '_preview"></div>',
+      '</div>'
+    ].join(''));
+    $input.closest('.form-row').append($widget);
+
+    /* 渲染单张缩略图 */
+    function renderPreview(url) {
+      var $area = $('#' + fieldId + '_preview');
+      $area.empty();
+      if (!url) return;
+      var $wrap = $('<div class="img-thumb-single"></div>');
+      $wrap.append(
+        '<a href="' + url + '" target="_blank"><img src="' + url + '" alt="预览图"></a>'
+      );
+      var $del = $('<button class="img-del" type="button" title="清除">×</button>');
+      $del.on('click', function () { setUrl(''); });
+      $wrap.append($del);
+      $area.append($wrap);
+    }
+
+    /* 本地上传 */
+    $('#' + fieldId + '_upload_btn').on('click', function () {
+      var file = document.getElementById(fieldId + '_file').files[0];
+      if (!file) { alert('请先选择图片文件'); return; }
+      var $btn = $(this).prop('disabled', true).text('上传中…');
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('csrfmiddlewaretoken', getCSRF());
+      fetch(UPLOAD_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.url) setUrl(data.url);
+          else alert('上传失败：' + (data.error || '未知错误'));
+          $btn.prop('disabled', false).text('上传图片');
+        })
+        .catch(function () {
+          alert('上传请求失败，请检查网络');
+          $btn.prop('disabled', false).text('上传图片');
+        });
+    });
+
+    /* 应用外链 URL */
+    $('#' + fieldId + '_add_btn').on('click', function () {
+      var url = $('#' + fieldId + '_url_input').val().trim();
+      if (!url) { alert('请输入图片 URL'); return; }
+      setUrl(url);
+      $('#' + fieldId + '_url_input').val('');
+    });
+
+    /* 初始渲染 */
+    renderPreview(getUrl());
+  }
+
+  $(document).ready(function () {
+    initSingleImageWidget('id_image_url');
+  });
+
+}(django.jQuery));
+</script>
+{% endblock %}

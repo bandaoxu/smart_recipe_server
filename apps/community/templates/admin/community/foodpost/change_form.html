@@ -1,0 +1,210 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+<style>
+.img-upload-widget {
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+.img-upload-widget .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.img-upload-widget input[type=text] {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.img-upload-widget button {
+  padding: 4px 12px;
+  background: #417690;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.img-upload-widget button:hover { background: #2c5570; }
+.img-upload-widget button:disabled { background: #aaa; cursor: not-allowed; }
+.img-preview-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.img-thumb-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100px;
+  height: 100px;
+}
+.img-thumb-wrap a img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  display: block;
+}
+.img-thumb-wrap .img-num {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.img-thumb-wrap .img-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(200,50,50,0.85);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.img-thumb-wrap .img-del:hover { background: rgba(180,20,20,1); }
+.img-upload-widget .hint { color: #888; font-size: 12px; margin-top: 4px; }
+</style>
+
+<script>
+// @ts-nocheck
+(function ($) {
+  "use strict";
+
+  var UPLOAD_URL = "{% url 'admin_upload_image' %}";
+  var CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]') &&
+                   document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  function getCSRF() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  /* ── 多图 JSON Widget ── */
+  function initMultiImageWidget(fieldId) {
+    var $textarea = $('#' + fieldId);
+    if (!$textarea.length) return;
+
+    /* 隐藏原始文本框 */
+    $textarea.hide();
+
+    /* 解析当前 JSON 值 */
+    function getUrls() {
+      try { return JSON.parse($textarea.val() || '[]'); }
+      catch (e) { return []; }
+    }
+    function setUrls(arr) {
+      $textarea.val(JSON.stringify(arr));
+      renderPreviews(arr);
+    }
+
+    /* 构建组件 HTML */
+    var $widget = $([
+      '<div class="img-upload-widget">',
+        '<div class="row">',
+          '<input type="file" id="', fieldId, '_file" accept="image/*" multiple style="flex:1">',
+          '<button type="button" id="', fieldId, '_upload_btn">上传图片</button>',
+        '</div>',
+        '<div class="row">',
+          '<input type="text" id="', fieldId, '_url_input" placeholder="输入图片 URL…">',
+          '<button type="button" id="', fieldId, '_add_btn">添加</button>',
+        '</div>',
+        '<div class="hint">支持多选本地图片；也可直接粘贴外链 URL。</div>',
+        '<div class="img-preview-area" id="', fieldId, '_preview"></div>',
+      '</div>'
+    ].join(''));
+    $textarea.after($widget);
+
+    /* 渲染缩略图 */
+    function renderPreviews(urls) {
+      var $area = $('#' + fieldId + '_preview');
+      $area.empty();
+      $.each(urls, function (i, url) {
+        var $wrap = $('<div class="img-thumb-wrap"></div>');
+        $wrap.append(
+          '<a href="' + url + '" target="_blank"><img src="' + url + '" onerror="this.src=\'data:image/svg+xml,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'100\\\' height=\\\'100\\\'><rect fill=\\\'%23eee\\\' width=\\\'100\\\' height=\\\'100\\\'/><text x=\\\'50%25\\\' y=\\\'50%25\\\' text-anchor=\\\'middle\\\' dy=\\\'.3em\\\' fill=\\\'%23aaa\\\' font-size=\\\'12\\\'>无法加载</text></svg>\'" alt="图片' + (i+1) + '"></a>'
+        );
+        $wrap.append('<span class="img-num">' + (i+1) + '</span>');
+        var $del = $('<button class="img-del" type="button" title="删除">×</button>');
+        $del.on('click', function () {
+          var arr = getUrls();
+          arr.splice(i, 1);
+          setUrls(arr);
+        });
+        $wrap.append($del);
+        $area.append($wrap);
+      });
+    }
+
+    /* 本地上传 */
+    $('#' + fieldId + '_upload_btn').on('click', function () {
+      var files = document.getElementById(fieldId + '_file').files;
+      if (!files.length) { alert('请先选择图片文件'); return; }
+      var $btn = $(this).prop('disabled', true).text('上传中…');
+      var promises = [];
+      for (var i = 0; i < files.length; i++) {
+        var fd = new FormData();
+        fd.append('file', files[i]);
+        fd.append('csrfmiddlewaretoken', getCSRF());
+        promises.push(
+          fetch(UPLOAD_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+        );
+      }
+      Promise.all(promises).then(function (results) {
+        var arr = getUrls();
+        results.forEach(function (data) {
+          if (data.url) arr.push(data.url);
+          else alert('部分图片上传失败：' + (data.error || '未知错误'));
+        });
+        setUrls(arr);
+        document.getElementById(fieldId + '_file').value = '';
+        $btn.prop('disabled', false).text('上传图片');
+      }).catch(function () {
+        alert('上传请求失败，请检查网络');
+        $btn.prop('disabled', false).text('上传图片');
+      });
+    });
+
+    /* 添加外链 URL */
+    $('#' + fieldId + '_add_btn').on('click', function () {
+      var url = $('#' + fieldId + '_url_input').val().trim();
+      if (!url) { alert('请输入图片 URL'); return; }
+      var arr = getUrls();
+      arr.push(url);
+      setUrls(arr);
+      $('#' + fieldId + '_url_input').val('');
+    });
+
+    /* 初始渲染 */
+    renderPreviews(getUrls());
+  }
+
+  $(document).ready(function () {
+    initMultiImageWidget('id_images');
+  });
+
+}(django.jQuery));
+</script>
+{% endblock %}

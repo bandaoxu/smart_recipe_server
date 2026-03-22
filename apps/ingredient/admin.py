@@ -31,6 +31,9 @@ class IngredientAdmin(ExportCsvMixin, admin.ModelAdmin):
     ]
     export_filename = "ingredients"
 
+    # 自定义编辑页模板（图片上传组件）
+    change_form_template = "admin/ingredient/ingredient/change_form.html"
+
     # 列表页显示的字段
     list_display = [
         "id",
