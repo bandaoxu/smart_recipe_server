@@ -1,0 +1,106 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+<script>
+// @ts-nocheck  /* Django 模板语法在此文件中由服务端渲染，IDE 无法解析属正常现象 */
+(function ($) {
+  "use strict";
+
+  /* ── 后端注入的数据（Django 模板渲染后为合法 JSON，IDE 误报可忽略）── */
+  /* eslint-disable */
+  const RECIPES  = {{ recipes_json|safe }};   // noqa
+  const POSTS    = {{ posts_json|safe }};     // noqa
+  const COMMENTS = {{ comments_json|safe }};  // noqa
+  /* eslint-enable */
+
+  $(document).ready(function () {
+    var $typeSelect   = $('#id_target_type');
+    var $targetInput  = $('#id_target_id');   /* 原始 <input type="number"> */
+    var $parentSelect = $('#id_parent');
+
+    /* ── 1. 创建虚拟 <select>，替换原始数字输入框 ── */
+    var $vs = $('<select id="virtual_target_id"></select>');
+    $targetInput.hide().after($vs);
+
+    /* ── 2. 构建 <option> 字符串 ── */
+    function buildOptions(items, savedVal) {
+      var html = '<option value="">— 请搜索并选择 —</option>';
+      $.each(items, function (_, item) {
+        var sel = (String(item.id) === String(savedVal)) ? ' selected' : '';
+        html += '<option value="' + item.id + '"' + sel + '>' + item.display + '</option>';
+      });
+      return html;
+    }
+
+    /* ── 3. 根据 target_type 填充目标 Select2 ── */
+    function populateTargetId() {
+      var type  = $typeSelect.val();
+      var items = (type === 'recipe') ? RECIPES : POSTS;
+      var saved = $targetInput.val();
+
+      /* 销毁旧 Select2 实例（避免重复初始化报错） */
+      if ($vs.data('select2')) {
+        $vs.select2('destroy');
+      }
+
+      $vs.html(buildOptions(items, saved));
+
+      /* 初始化 Select2，与 Django admin autocomplete 字段外观一致 */
+      $vs.select2({
+        width: 'element',
+        placeholder: '— 请搜索并选择 —',
+        allowClear: true,
+        language: {
+          noResults: function () { return '未找到匹配项'; }
+        }
+      });
+
+      syncHiddenInput();
+      populateParent();
+    }
+
+    /* ── 4. 将虚拟 select 的值同步回隐藏的原始 input ── */
+    function syncHiddenInput() {
+      $targetInput.val($vs.val() || '');
+    }
+
+    /* ── 5. 根据 target_type + target_id 过滤父评论 ── */
+    function populateParent() {
+      var type     = $typeSelect.val();
+      var targetId = parseInt($vs.val()) || null;
+      var saved    = $parentSelect.data('savedValue') || '';
+
+      var relevant = $.grep(COMMENTS, function (c) {
+        return c.target_type === type && c.target_id === targetId;
+      });
+
+      var html = '<option value="">── 顶级评论（不回复任何评论）──</option>';
+      $.each(relevant, function (_, c) {
+        var sel = (String(c.id) === String(saved)) ? ' selected' : '';
+        html += '<option value="' + c.id + '"' + sel + '>' + c.display + '</option>';
+      });
+      $parentSelect.html(html);
+    }
+
+    /* ── 6. 编辑模式：提前保存 parent 原始值，供重建时恢复 ── */
+    if ($parentSelect.val()) {
+      $parentSelect.data('savedValue', $parentSelect.val());
+    }
+
+    /* ── 7. 事件绑定 ── */
+    $typeSelect.on('change', populateTargetId);
+    $vs.on('change', function () {
+      syncHiddenInput();
+      populateParent();
+    });
+
+    /* ── 8. 页面初始化 ── */
+    populateTargetId();
+  });
+
+}(django.jQuery));
+</script>
+{% endblock %}

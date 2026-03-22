@@ -54,17 +54,17 @@ class UserProfile(models.Model):
 
     # 性别选项
     GENDER_CHOICES = [
-        ('male', '男'),
-        ('female', '女'),
-        ('other', '其他'),
+        ("male", "男"),
+        ("female", "女"),
+        ("other", "其他"),
     ]
 
     # 健康目标选项
     HEALTH_GOAL_CHOICES = [
-        ('lose_weight', '减肥'),
-        ('gain_muscle', '增肌'),
-        ('maintain', '保持健康'),
-        ('improve_nutrition', '改善营养'),
+        ("lose_weight", "减肥"),
+        ("gain_muscle", "增肌"),
+        ("maintain", "保持健康"),
+        ("improve_nutrition", "改善营养"),
     ]
 
     # 关联到 Django 自带的 User 模型（一对一关系）
@@ -73,9 +73,9 @@ class UserProfile(models.Model):
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='userprofile',
-        verbose_name='用户',
-        help_text='关联的 Django 用户'
+        related_name="userprofile",
+        verbose_name="用户",
+        help_text="关联的 Django 用户",
     )
 
     # 用户昵称（可以与用户名不同）
@@ -83,8 +83,8 @@ class UserProfile(models.Model):
         max_length=50,
         blank=True,
         null=True,
-        verbose_name='昵称',
-        help_text='用户的显示名称'
+        verbose_name="昵称",
+        help_text="用户的显示名称",
     )
 
     # 头像 URL（存储图片的 URL 地址）
@@ -92,8 +92,8 @@ class UserProfile(models.Model):
         max_length=500,
         blank=True,
         null=True,
-        verbose_name='头像',
-        help_text='用户头像的 URL 地址'
+        verbose_name="头像",
+        help_text="用户头像的 URL 地址",
     )
 
     # 性别
@@ -102,16 +102,13 @@ class UserProfile(models.Model):
         choices=GENDER_CHOICES,
         blank=True,
         null=True,
-        verbose_name='性别',
-        help_text='用户性别'
+        verbose_name="性别",
+        help_text="用户性别",
     )
 
     # 年龄
     age = models.IntegerField(
-        blank=True,
-        null=True,
-        verbose_name='年龄',
-        help_text='用户年龄'
+        blank=True, null=True, verbose_name="年龄", help_text="用户年龄"
     )
 
     # 手机号
@@ -119,8 +116,8 @@ class UserProfile(models.Model):
         max_length=20,
         blank=True,
         null=True,
-        verbose_name='手机号',
-        help_text='用户手机号码'
+        verbose_name="手机号",
+        help_text="用户手机号码",
     )
 
     # 饮食偏好（JSON 格式，存储多个偏好标签）
@@ -128,8 +125,8 @@ class UserProfile(models.Model):
     dietary_preference = models.JSONField(
         default=list,
         blank=True,
-        verbose_name='饮食偏好',
-        help_text='用户的饮食偏好标签列表（如：素食、低糖、低脂等）'
+        verbose_name="饮食偏好",
+        help_text="用户的饮食偏好标签列表（如：素食、低糖、低脂等）",
     )
 
     # 过敏食材（JSON 格式，存储过敏食材列表）
@@ -137,8 +134,8 @@ class UserProfile(models.Model):
     allergies = models.JSONField(
         default=list,
         blank=True,
-        verbose_name='过敏食材',
-        help_text='用户对哪些食材过敏'
+        verbose_name="过敏食材",
+        help_text="用户对哪些食材过敏",
     )
 
     # 健康目标
@@ -147,30 +144,26 @@ class UserProfile(models.Model):
         choices=HEALTH_GOAL_CHOICES,
         blank=True,
         null=True,
-        verbose_name='健康目标',
-        help_text='用户的健康目标（如：减肥、增肌、保持健康）'
+        verbose_name="健康目标",
+        help_text="用户的健康目标（如：减肥、增肌、保持健康）",
     )
 
     # 每日卡路里目标（单位：千卡）
     daily_calories_target = models.IntegerField(
         blank=True,
         null=True,
-        verbose_name='每日卡路里目标',
-        help_text='用户每日摄入卡路里的目标值（单位：千卡）'
+        verbose_name="每日卡路里目标",
+        help_text="用户每日摄入卡路里的目标值（单位：千卡）",
     )
 
     # 创建时间（自动设置为创建时的时间）
     created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='创建时间',
-        help_text='用户档案创建的时间'
+        auto_now_add=True, verbose_name="创建时间", help_text="用户档案创建的时间"
     )
 
     # 更新时间（每次保存时自动更新）
     updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name='更新时间',
-        help_text='用户档案最后更新的时间'
+        auto_now=True, verbose_name="更新时间", help_text="用户档案最后更新的时间"
     )
 
     class Meta:
@@ -182,10 +175,11 @@ class UserProfile(models.Model):
         verbose_name_plural: 模型的可读名称（复数）
         ordering: 默认排序方式
         """
-        db_table = 'user_profile'
-        verbose_name = '用户档案'
-        verbose_name_plural = '用户档案'
-        ordering = ['-created_at']  # 按创建时间倒序排列
+
+        db_table = "user_profile"
+        verbose_name = "用户档案"
+        verbose_name_plural = "用户档案"
+        ordering = ["-created_at"]  # 按创建时间倒序排列
 
     def __str__(self):
         """
@@ -211,15 +205,15 @@ class UserProfile(models.Model):
             print(age_group)  # 输出：青年
         """
         if not self.age:
-            return '未知'
+            return "未知"
         elif self.age < 18:
-            return '青少年'
+            return "青少年"
         elif self.age < 35:
-            return '青年'
+            return "青年"
         elif self.age < 60:
-            return '中年'
+            return "中年"
         else:
-            return '老年'
+            return "老年"
 
     def is_allergic_to(self, ingredient_name):
         """
@@ -253,8 +247,8 @@ class UserProfile(models.Model):
             # 输出：素食, 低糖, 低脂
         """
         if not self.dietary_preference:
-            return '无'
-        return ', '.join(self.dietary_preference)
+            return "无"
+        return ", ".join(self.dietary_preference)
 
 
 class Follow(models.Model):
@@ -264,28 +258,35 @@ class Follow(models.Model):
     记录用户之间的关注/被关注关系。
     follower 关注了 following。
     """
+
     follower = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='following',
-        verbose_name='关注者'
+        User, on_delete=models.CASCADE, related_name="following", verbose_name="关注者"
     )
     following = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='followers',
-        verbose_name='被关注者'
+        related_name="followers",
+        verbose_name="被关注者",
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='关注时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="关注时间")
 
     class Meta:
-        db_table = 'user_follow'
-        unique_together = ('follower', 'following')
-        verbose_name = '关注关系'
-        verbose_name_plural = '关注关系'
+        db_table = "user_follow"
+        unique_together = ("follower", "following")
+        verbose_name = "关注关系"
+        verbose_name_plural = "关注关系"
 
     def __str__(self):
-        return f'{self.follower.username} → {self.following.username}'
+        return f"{self.follower.username} → {self.following.username}"
+
+    def clean(self):
+        """验证关注关系：不能关注自己"""
+        from django.core.exceptions import ValidationError
+
+        if self.follower_id == self.following_id:
+            raise ValidationError({"following": "不能关注自己"})
+
+        super().clean()
 
 
 # ── 信号：新建 User 时自动创建 UserProfile ──────────────────────────────────
