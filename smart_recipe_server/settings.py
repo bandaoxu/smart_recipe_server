@@ -29,7 +29,8 @@ SECRET_KEY = "django-insecure-297wl!48e_)*0d)e3cv4t%&&$ap@bl00vhjzm1mp$^m^4_2aqe
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["192.168.206.1", "localhost", "127.0.0.1", "192.168.45.111"]
+# ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -92,9 +93,9 @@ WSGI_APPLICATION = "smart_recipe_server.wsgi.application"
 # SQLite 数据库配置（开发环境推荐）
 # 优点：无需额外安装，开箱即用
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
 
