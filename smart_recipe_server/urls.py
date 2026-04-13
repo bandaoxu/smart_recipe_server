@@ -67,7 +67,7 @@ def upload_file(request):
         for chunk in file.chunks():
             f.write(chunk)
 
-    url = request.build_absolute_uri(f"{settings.MEDIA_URL}uploads/{filename}")
+    url = f"{settings.MEDIA_URL}uploads/{filename}"
     return Response({"code": 200, "message": "上传成功", "data": {"url": url}})
 
 
@@ -90,7 +90,7 @@ def admin_upload_image(request):
     with open(os.path.join(upload_dir, filename), "wb+") as f:
         for chunk in file.chunks():
             f.write(chunk)
-    url = request.build_absolute_uri(f"{settings.MEDIA_URL}uploads/{filename}")
+    url = f"{settings.MEDIA_URL}uploads/{filename}"
     return JsonResponse({"url": url})
 
 
